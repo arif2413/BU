@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Skin Analysis</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Skin Analysis</h1>
+        <p class="subtitle">Upload a face image or use your camera for AI-powered skin analysis</p>
+    </header>
+
+    <main>
+        <!-- Upload / Camera Section -->
+        <section class="input-section">
+            <div class="input-tabs">
+                <button class="tab active" id="tab-upload" data-tab="upload">Upload Image</button>
+                <button class="tab" id="tab-camera" data-tab="camera">Use Camera</button>
+            </div>
+
+            <!-- Upload Panel -->
+            <div class="tab-panel active" id="panel-upload">
+                <div class="upload-zone" id="zone">
+                    <input type="file" id="file" accept="image/jpeg,image/png,image/jpg,image/webp" class="file-input-overlay">
+                    <div class="upload-icon" id="upload-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                    </div>
+                    <p id="zone-text">Drag & drop an image here, or click to browse</p>
+                    <span class="choose-btn" id="choose-btn">Choose Image</span>
+                    <img id="preview" class="preview" style="display:none;" alt="Preview">
+                </div>
+            </div>
+
+            <!-- Camera Panel -->
+            <div class="tab-panel" id="panel-camera">
+                <div class="camera-container">
+                    <video id="camera-video" autoplay playsinline></video>
+                    <canvas id="camera-canvas" style="display:none;"></canvas>
+                    <img id="camera-preview" class="preview" style="display:none;" alt="Camera capture">
+                    <div class="camera-controls">
+                        <button class="btn btn-secondary" id="btn-start-camera">Start Camera</button>
+                        <button class="btn btn-accent" id="btn-capture" style="display:none;">Take Photo</button>
+                        <button class="btn btn-secondary" id="btn-retake" style="display:none;">Retake</button>
+                    </div>
+                    <p class="camera-hint" id="camera-hint">Click "Start Camera" to begin</p>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-analyze" id="analyze" disabled>Analyze Skin</button>
+        </section>
+
+        <!-- Status Messages -->
+        <div id="loading" class="loading" style="display:none;">
+            <div class="spinner"></div>
+            <span>Analyzing your skin... This may take a moment.</span>
+        </div>
+        <div id="error" class="error-msg" style="display:none;"></div>
+
+        <!-- Results Section -->
+        <section id="results" class="results" style="display:none;">
+            <h2>Analysis Results</h2>
+            <p class="subtitle results-hint">Click a highlighted metric to show the detected region on the image</p>
+
+            <div class="results-flex">
+                <div class="result-img-wrap" id="img-wrap">
+                    <img id="result-img" class="result-img" alt="Annotated result">
+                    <svg id="result-overlay" class="result-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+                </div>
+                <div class="metrics-panel" id="metrics"></div>
+            </div>
+
+            <div class="legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#00e5ff;"></span>Face</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#ab47bc;"></span>Dark Circles</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#8d6e63;"></span>Brown Spots</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#ffee58;"></span>Comedones</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#ef5350;"></span>Acne</span>
+            </div>
+
+            <details class="raw-details">
+                <summary>Raw JSON Response</summary>
+                <pre id="raw-output"></pre>
+            </details>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
