@@ -1,7 +1,25 @@
 (function () {
     "use strict";
 
-    // ── DOM refs ──
+    // ── Page Navigation ──
+    const navBtns = document.querySelectorAll(".page-nav-btn");
+    const pages = document.querySelectorAll(".page");
+
+    navBtns.forEach((btn) => {
+        btn.onclick = () => {
+            const targetId = btn.dataset.page;
+            navBtns.forEach((b) => b.classList.remove("active"));
+            pages.forEach((p) => p.classList.remove("active"));
+            btn.classList.add("active");
+            document.getElementById(targetId).classList.add("active");
+            if (targetId === "page-compare") loadHistory();
+        };
+    });
+
+    // ══════════════════════════════════════════════════
+    //  ANALYZE PAGE
+    // ══════════════════════════════════════════════════
+
     const tabUpload = document.getElementById("tab-upload");
     const tabCamera = document.getElementById("tab-camera");
     const panelUpload = document.getElementById("panel-upload");
@@ -290,7 +308,6 @@
         overlaySvg.innerHTML = "";
     }
 
-    // ── Helpers ──
     function hideResults() {
         errorDiv.style.display = "none";
         resultsDiv.style.display = "none";
@@ -300,6 +317,284 @@
         errorDiv.textContent = msg;
         errorDiv.style.display = "block";
     }
+
+    // ══════════════════════════════════════════════════
+    //  COMPARE PAGE
+    // ══════════════════════════════════════════════════
+
+    const historyLoading = document.getElementById("history-loading");
+    const noHistory = document.getElementById("no-history");
+    const historyGrid = document.getElementById("history-grid");
+    const beforeList = document.getElementById("before-list");
+    const afterList = document.getElementById("after-list");
+    const btnCompare = document.getElementById("btn-compare");
+    const compareLoading = document.getElementById("compare-loading");
+    const compareError = document.getElementById("compare-error");
+    const compareResults = document.getElementById("compare-results");
+    const compareHeader = document.getElementById("compare-header");
+    const compareCharts = document.getElementById("compare-charts");
+
+    let selectedBefore = null;
+    let selectedAfter = null;
+
+    async function loadHistory() {
+        historyLoading.style.display = "flex";
+        noHistory.style.display = "none";
+        historyGrid.style.display = "none";
+        compareResults.style.display = "none";
+        compareError.style.display = "none";
+        selectedBefore = null;
+        selectedAfter = null;
+        btnCompare.disabled = true;
+
+        try {
+            const res = await fetch("/history");
+            if (!res.ok) throw new Error("Failed to load history");
+            const entries = await res.json();
+
+            if (entries.length < 2) {
+                noHistory.style.display = "block";
+                noHistory.querySelector("p").textContent =
+                    entries.length === 0
+                        ? "No analyses yet. Run at least two analyses first, then come back to compare."
+                        : "Only one analysis found. Run at least one more, then come back to compare.";
+                return;
+            }
+
+            beforeList.innerHTML = "";
+            afterList.innerHTML = "";
+
+            entries.forEach((entry) => {
+                const card = buildHistoryCard(entry);
+                const cardClone = buildHistoryCard(entry);
+
+                card.onclick = () => selectCard(beforeList, card, entry.id, "before");
+                cardClone.onclick = () => selectCard(afterList, cardClone, entry.id, "after");
+
+                beforeList.appendChild(card);
+                afterList.appendChild(cardClone);
+            });
+
+            historyGrid.style.display = "grid";
+        } catch (err) {
+            noHistory.style.display = "block";
+            noHistory.querySelector("p").textContent = "Error loading history: " + err.message;
+        } finally {
+            historyLoading.style.display = "none";
+        }
+    }
+
+    function buildHistoryCard(entry) {
+        const card = document.createElement("div");
+        card.className = "history-card";
+        card.dataset.id = entry.id;
+
+        const ts = entry.timestamp ? new Date(entry.timestamp) : null;
+        const dateStr = ts ? ts.toLocaleDateString("en-US", {
+            year: "numeric", month: "short", day: "numeric",
+            hour: "2-digit", minute: "2-digit"
+        }) : entry.id;
+
+        card.innerHTML =
+            '<img class="history-thumb" src="/history/' + esc(entry.id) + '/thumb" alt="Thumbnail" loading="lazy">' +
+            '<div class="history-info">' +
+            '<div class="history-date">' + esc(dateStr) + "</div>" +
+            '<div class="history-id">' + esc(entry.id) + "</div>" +
+            "</div>";
+        return card;
+    }
+
+    function selectCard(listEl, card, id, role) {
+        listEl.querySelectorAll(".history-card").forEach((c) => c.classList.remove("selected"));
+        card.classList.add("selected");
+        if (role === "before") selectedBefore = id;
+        else selectedAfter = id;
+        btnCompare.disabled = !(selectedBefore && selectedAfter && selectedBefore !== selectedAfter);
+    }
+
+    btnCompare.onclick = async () => {
+        if (!selectedBefore || !selectedAfter || selectedBefore === selectedAfter) return;
+
+        btnCompare.disabled = true;
+        compareLoading.style.display = "flex";
+        compareError.style.display = "none";
+        compareResults.style.display = "none";
+
+        try {
+            const res = await fetch("/compare/" + encodeURIComponent(selectedBefore) + "/" + encodeURIComponent(selectedAfter));
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}));
+                throw new Error(d.detail || "Comparison failed");
+            }
+            const data = await res.json();
+            renderComparison(data);
+        } catch (err) {
+            compareError.textContent = err instanceof Error ? err.message : String(err);
+            compareError.style.display = "block";
+        } finally {
+            compareLoading.style.display = "none";
+            btnCompare.disabled = false;
+        }
+    };
+
+    function renderComparison(data) {
+        const bDate = data.before.timestamp ? new Date(data.before.timestamp).toLocaleDateString("en-US", {
+            year: "numeric", month: "short", day: "numeric"
+        }) : data.before.id;
+        const aDate = data.after.timestamp ? new Date(data.after.timestamp).toLocaleDateString("en-US", {
+            year: "numeric", month: "short", day: "numeric"
+        }) : data.after.id;
+
+        compareHeader.innerHTML =
+            '<div class="compare-header-item">' +
+            '<img src="/history/' + esc(data.before.id) + '/thumb" alt="Before">' +
+            '<div class="ch-label">BEFORE</div>' +
+            '<div class="ch-date">' + esc(bDate) + "</div></div>" +
+            '<div class="compare-header-arrow">&#10132;</div>' +
+            '<div class="compare-header-item">' +
+            '<img src="/history/' + esc(data.after.id) + '/thumb" alt="After">' +
+            '<div class="ch-label">AFTER</div>' +
+            '<div class="ch-date">' + esc(aDate) + "</div></div>";
+
+        const rows = data.comparisons || [];
+        if (rows.length === 0) {
+            compareCharts.innerHTML = '<div class="empty-state"><p>No comparable parameters found.</p></div>';
+            compareResults.style.display = "block";
+            return;
+        }
+
+        var categories = {};
+        var catOrder = [];
+        rows.forEach(function (r) {
+            var cat = r.category || "Other";
+            if (!categories[cat]) {
+                categories[cat] = [];
+                catOrder.push(cat);
+            }
+            categories[cat].push(r);
+        });
+
+        var html = "";
+        catOrder.forEach(function (cat) {
+            var items = categories[cat];
+            html += '<div class="cat-section">';
+            html += '<div class="cat-title">' + esc(cat) + "</div>";
+
+            items.forEach(function (r) {
+                var bNum = typeof r.before === "number" ? r.before : null;
+                var aNum = typeof r.after === "number" ? r.after : null;
+                var isNumeric = r.numeric && (bNum !== null || aNum !== null);
+
+                if (isNumeric) {
+                    html += buildBarRow(r, bNum, aNum);
+                } else {
+                    html += buildTextRow(r);
+                }
+            });
+
+            html += "</div>";
+        });
+
+        compareCharts.innerHTML = html;
+        compareResults.style.display = "block";
+        compareResults.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                compareCharts.querySelectorAll(".bar-fill[data-width]").forEach(function (el) {
+                    el.style.width = el.dataset.width + "%";
+                });
+            });
+        });
+    }
+
+    function valueToColor(value, maxVal, direction) {
+        if (maxVal <= 0) maxVal = 1;
+        var ratio = Math.min(Math.max(value / maxVal, 0), 1);
+
+        // For "higher_is_better" (scores): high = green, low = red → invert
+        // For "lower_is_better" (counts): low = green, high = red → normal
+        // For "neutral": use a blue-ish scale
+        var badness;
+        if (direction === "higher_is_better") {
+            badness = 1 - ratio; // high value = good = green
+        } else if (direction === "lower_is_better") {
+            badness = ratio; // high value = bad = red
+        } else {
+            return "hsl(220, 50%, " + (35 + ratio * 20) + "%)";
+        }
+
+        // Green (120) → Yellow (60) → Orange (30) → Red (0)
+        var hue = 120 * (1 - badness);
+        var sat = 65 + badness * 15;
+        var light = 38 + (1 - Math.abs(badness - 0.5) * 2) * 12;
+        return "hsl(" + hue.toFixed(0) + ", " + sat.toFixed(0) + "%, " + light.toFixed(0) + "%)";
+    }
+
+    function buildBarRow(r, bNum, aNum) {
+        var b = bNum !== null ? bNum : 0;
+        var a = aNum !== null ? aNum : 0;
+        var diff = Math.round((a - b) * 100) / 100;
+        var dir = r.direction || "neutral";
+
+        var scaleMax;
+        if (dir === "higher_is_better") {
+            scaleMax = 100;
+        } else {
+            scaleMax = Math.max(Math.abs(b), Math.abs(a), 1);
+            if (scaleMax < 10) scaleMax = Math.max(scaleMax * 2, 10);
+        }
+
+        var bPct = Math.min((Math.abs(b) / scaleMax) * 100, 100);
+        var aPct = Math.min((Math.abs(a) / scaleMax) * 100, 100);
+
+        var bColor = valueToColor(Math.abs(b), scaleMax, dir);
+        var aColor = valueToColor(Math.abs(a), scaleMax, dir);
+
+        var verdictClass = "bar-verdict-" + r.verdict;
+        var verdictText = r.verdict.charAt(0).toUpperCase() + r.verdict.slice(1);
+        var diffStr = diff > 0 ? "+" + diff : diff < 0 ? String(diff) : "0";
+
+        return (
+            '<div class="bar-row">' +
+            '<div class="bar-row-header">' +
+            '<span class="bar-label">' + esc(r.label) + "</span>" +
+            '<span class="bar-verdict ' + verdictClass + '">' + esc(verdictText) + " (" + esc(diffStr) + ")</span>" +
+            "</div>" +
+            '<div class="bar-group">' +
+            '<div class="bar-track">' +
+            '<div class="bar-fill bar-fill-before" data-width="' + bPct.toFixed(1) + '" style="width:0%;background:' + bColor + '"></div>' +
+            '<span class="bar-type-label">Before</span>' +
+            '<span class="bar-value">' + esc(String(bNum !== null ? bNum : "-")) + "</span>" +
+            "</div>" +
+            '<div class="bar-track">' +
+            '<div class="bar-fill bar-fill-after" data-width="' + aPct.toFixed(1) + '" style="width:0%;background:' + aColor + '"></div>' +
+            '<span class="bar-type-label">After</span>' +
+            '<span class="bar-value">' + esc(String(aNum !== null ? aNum : "-")) + "</span>" +
+            "</div>" +
+            "</div>" +
+            "</div>"
+        );
+    }
+
+    function buildTextRow(r) {
+        var bv = r.before === null || r.before === undefined ? "-" : String(r.before);
+        var av = r.after === null || r.after === undefined ? "-" : String(r.after);
+        var changed = bv !== av;
+        return (
+            '<div class="text-compare-row">' +
+            '<span class="text-compare-label">' + esc(r.label) + "</span>" +
+            '<div class="text-compare-vals">' +
+            '<span class="text-val-before">' + esc(bv) + "</span>" +
+            '<span class="text-arrow">' + (changed ? "&#10132;" : "=") + "</span>" +
+            '<span class="text-val-after">' + esc(av) + "</span>" +
+            "</div></div>"
+        );
+    }
+
+    // ══════════════════════════════════════════════════
+    //  SHARED HELPERS
+    // ══════════════════════════════════════════════════
 
     function esc(s) {
         return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

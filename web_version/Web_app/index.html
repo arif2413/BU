@@ -12,15 +12,20 @@
         <p class="subtitle">Upload a face image or use your camera for AI-powered skin analysis</p>
     </header>
 
-    <main>
-        <!-- Upload / Camera Section -->
+    <!-- Page-level navigation -->
+    <nav class="page-nav">
+        <button class="page-nav-btn active" id="nav-analyze" data-page="page-analyze">New Analysis</button>
+        <button class="page-nav-btn" id="nav-compare" data-page="page-compare">Compare Before &amp; After</button>
+    </nav>
+
+    <!-- ═══════════════ PAGE: ANALYZE ═══════════════ -->
+    <main class="page active" id="page-analyze">
         <section class="input-section">
             <div class="input-tabs">
                 <button class="tab active" id="tab-upload" data-tab="upload">Upload Image</button>
                 <button class="tab" id="tab-camera" data-tab="camera">Use Camera</button>
             </div>
 
-            <!-- Upload Panel -->
             <div class="tab-panel active" id="panel-upload">
                 <div class="upload-zone" id="zone">
                     <input type="file" id="file" accept="image/jpeg,image/png,image/jpg,image/webp" class="file-input-overlay">
@@ -37,7 +42,6 @@
                 </div>
             </div>
 
-            <!-- Camera Panel -->
             <div class="tab-panel" id="panel-camera">
                 <div class="camera-container">
                     <video id="camera-video" autoplay playsinline></video>
@@ -55,18 +59,15 @@
             <button class="btn btn-primary btn-analyze" id="analyze" disabled>Analyze Skin</button>
         </section>
 
-        <!-- Status Messages -->
         <div id="loading" class="loading" style="display:none;">
             <div class="spinner"></div>
             <span>Analyzing your skin... This may take a moment.</span>
         </div>
         <div id="error" class="error-msg" style="display:none;"></div>
 
-        <!-- Results Section -->
         <section id="results" class="results" style="display:none;">
             <h2>Analysis Results</h2>
             <p class="subtitle results-hint">Click a highlighted metric to show the detected region on the image</p>
-
             <div class="results-flex">
                 <div class="result-img-wrap" id="img-wrap">
                     <img id="result-img" class="result-img" alt="Annotated result">
@@ -74,7 +75,6 @@
                 </div>
                 <div class="metrics-panel" id="metrics"></div>
             </div>
-
             <div class="legend">
                 <span class="legend-item"><span class="legend-dot" style="background:#00e5ff;"></span>Face</span>
                 <span class="legend-item"><span class="legend-dot" style="background:#ab47bc;"></span>Dark Circles</span>
@@ -82,11 +82,61 @@
                 <span class="legend-item"><span class="legend-dot" style="background:#ffee58;"></span>Comedones</span>
                 <span class="legend-item"><span class="legend-dot" style="background:#ef5350;"></span>Acne</span>
             </div>
-
             <details class="raw-details">
                 <summary>Raw JSON Response</summary>
                 <pre id="raw-output"></pre>
             </details>
+        </section>
+    </main>
+
+    <!-- ═══════════════ PAGE: COMPARE ═══════════════ -->
+    <main class="page" id="page-compare">
+        <section class="compare-section">
+            <h2>Compare Before & After</h2>
+            <p class="subtitle">Select two analyses to see what changed over time</p>
+
+            <div id="history-loading" class="loading" style="display:none;">
+                <div class="spinner"></div>
+                <span>Loading history...</span>
+            </div>
+
+            <div id="no-history" class="empty-state" style="display:none;">
+                <p>No analyses yet. Run at least two analyses first, then come back to compare.</p>
+            </div>
+
+            <div id="history-grid" class="history-grid" style="display:none;">
+                <div class="history-col">
+                    <h3>Before (older)</h3>
+                    <div class="history-list" id="before-list"></div>
+                </div>
+                <div class="history-col">
+                    <h3>After (newer)</h3>
+                    <div class="history-list" id="after-list"></div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-analyze" id="btn-compare" disabled>Compare Selected</button>
+
+            <div id="compare-loading" class="loading" style="display:none;">
+                <div class="spinner"></div>
+                <span>Comparing analyses...</span>
+            </div>
+            <div id="compare-error" class="error-msg" style="display:none;"></div>
+        </section>
+
+        <section id="compare-results" class="results" style="display:none;">
+            <h2>Comparison Results</h2>
+            <div class="compare-header" id="compare-header"></div>
+            <div class="bar-legend">
+                <span class="bar-legend-label">Value scale:</span>
+                <div>
+                    <div class="bar-legend-gradient"></div>
+                    <div class="bar-legend-ends"><span>Good</span><span>Bad</span></div>
+                </div>
+                <span class="bar-legend-item"><span class="bar-legend-swatch bar-legend-swatch-before"></span>Before (solid)</span>
+                <span class="bar-legend-item"><span class="bar-legend-swatch bar-legend-swatch-after"></span>After (dashed)</span>
+            </div>
+            <div id="compare-charts"></div>
         </section>
     </main>
 
