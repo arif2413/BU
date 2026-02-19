@@ -283,6 +283,9 @@ async def analyze(image: UploadFile = File(..., description="Image file (JPEG/PN
         "image_file": img_path.name,
         "metrics": result["metrics"],
         "image_base64": result["image_base64"],
+        "regions": result.get("regions", {}),
+        "image_width": result.get("image_width"),
+        "image_height": result.get("image_height"),
     }
     json_path = UPLOADS_DIR / f"{analysis_id}.json"
     try:
@@ -329,14 +332,100 @@ def history_thumb(analysis_id: str):
     raise HTTPException(status_code=404, detail="Image not found")
 
 
+def _extract_regions_from_metrics(metrics: dict) -> dict:
+    """Rebuild region rectangles from the raw API response stored in metrics."""
+    r = metrics.get("result", {})
+    face_rect = metrics.get("face_rectangle", {})
+
+    def rect_to_dict(rect):
+        if not rect or not isinstance(rect, dict):
+            return None
+        return {
+            "left": rect.get("left", 0),
+            "top": rect.get("top", 0),
+            "width": rect.get("width", 0),
+            "height": rect.get("height", 0),
+        }
+
+    regions = {}
+    if face_rect:
+        regions["face"] = [rect_to_dict(face_rect)]
+    dcm = r.get("dark_circle_mark", {})
+    dark_rects = []
+    for key in ("left_eye_rect", "right_eye_rect"):
+        dr = rect_to_dict(dcm.get(key))
+        if dr:
+            dark_rects.append(dr)
+    if dark_rects:
+        regions["dark_circle"] = dark_rects
+
+    eye_pouch_rects = []
+    for key in ("left_eye_pouch_rect", "right_eye_pouch_rect"):
+        ep = rect_to_dict(r.get(key))
+        if ep:
+            eye_pouch_rects.append(ep)
+    if eye_pouch_rects:
+        regions["eye_pouch"] = eye_pouch_rects
+
+    for key, region_key in [
+        ("brown_spot", "brown_spot"),
+        ("closed_comedones", "blackhead"),
+        ("acne_mark", "acne_mark"),
+        ("acne", "acne"),
+        ("mole", "mole"),
+        ("acne_nodule", "acne_nodule"),
+        ("acne_pustule", "acne_pustule"),
+    ]:
+        rects = [rect_to_dict(x) for x in r.get(key, {}).get("rectangle", [])]
+        rects = [x for x in rects if x]
+        if rects:
+            regions[region_key] = rects
+    return regions
+
+
+def _extract_image_dimensions(metrics: dict) -> tuple:
+    """Get image dimensions from face_rectangle as a rough estimate."""
+    fr = metrics.get("face_rectangle", {})
+    if fr:
+        w = fr.get("left", 0) + fr.get("width", 0) + fr.get("left", 0)
+        h = fr.get("top", 0) + fr.get("height", 0) + fr.get("top", 0)
+        return w, h
+    return 0, 0
+
+
 @app.get("/history/{analysis_id}/data")
 def history_data(analysis_id: str):
-    """Return stored analysis data (metrics only, no base64 image)."""
+    """Return stored analysis data with regions (backfills from metrics if needed)."""
     json_path = UPLOADS_DIR / f"{analysis_id}.json"
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Analysis not found")
     data = json.loads(json_path.read_text(encoding="utf-8"))
     data.pop("image_base64", None)
+
+    if "regions" not in data and "metrics" in data:
+        data["regions"] = _extract_regions_from_metrics(data["metrics"])
+
+    if "image_width" not in data and "metrics" in data:
+        img_path = None
+        for ext in (".jpg", ".jpeg", ".png", ".webp"):
+            p = UPLOADS_DIR / f"{analysis_id}{ext}"
+            if p.exists():
+                img_path = p
+                break
+        if img_path:
+            try:
+                from PIL import Image
+                img = Image.open(img_path)
+                data["image_width"], data["image_height"] = img.size
+            except Exception:
+                w, h = _extract_image_dimensions(data["metrics"])
+                data["image_width"] = w
+                data["image_height"] = h
+        else:
+            w, h = _extract_image_dimensions(data["metrics"])
+            data["image_width"] = w
+            data["image_height"] = h
+
     return data
 
 

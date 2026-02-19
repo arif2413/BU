@@ -214,11 +214,23 @@ def create_annotated_image(api_response: dict, image_bytes: bytes) -> bytes:
             dark_rects.append(dr)
     if dark_rects:
         regions["dark_circle"] = dark_rects
+
+    eye_pouch_rects = []
+    for key in ("left_eye_pouch_rect", "right_eye_pouch_rect"):
+        ep = rect_to_dict(r.get(key))
+        if ep:
+            eye_pouch_rects.append(ep)
+    if eye_pouch_rects:
+        regions["eye_pouch"] = eye_pouch_rects
+
     for key, region_key in [
         ("brown_spot", "brown_spot"),
         ("closed_comedones", "blackhead"),
         ("acne_mark", "acne_mark"),
         ("acne", "acne"),
+        ("mole", "mole"),
+        ("acne_nodule", "acne_nodule"),
+        ("acne_pustule", "acne_pustule"),
     ]:
         rects = [rect_to_dict(x) for x in r.get(key, {}).get("rectangle", [])]
         rects = [x for x in rects if x]

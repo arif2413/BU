@@ -470,19 +470,19 @@
     var CONDITION_TABS = [
         { id: "acne", name: "Acne",
           desc: "Acne is caused by clogged hair follicles with oil and dead cells. Deduction per lesion: comedone \u22121.7, papule \u22122.4, pustule \u22124.8, nodule \u22129.8 points. Ratings: 90\u2013100 None, 70\u201389 Mild, 50\u201369 Moderate, 30\u201349 Severe.",
-          regions: ["acne", "acne_mark"],
+          regions: ["acne", "acne_mark", "acne_nodule", "acne_pustule"],
           dials: [{ path: "result.score_info.acne_score", label: "Acne Score", dir: "higher_is_better", scale: "score" }],
           color: { fill: "rgba(239,83,80,0.35)", stroke: "#ef5350" } },
 
         { id: "wrinkles", name: "Wrinkles",
           desc: "Wrinkles form from repeated facial expressions and loss of elasticity. Covers forehead lines, crow\u2019s feet, nasolabial folds, glabellar frown lines, and under-eye fine lines. Ratings: 90\u2013100 None, 70\u201389 Mild, 50\u201369 Moderate, 30\u201349 Severe.",
-          regions: [],
+          regions: ["face"],
           dials: [{ path: "result.score_info.wrinkle_score", label: "Wrinkle Score", dir: "higher_is_better", scale: "score" }],
           color: { fill: "rgba(100,181,246,0.35)", stroke: "#64b5f6" } },
 
         { id: "pores", name: "Pores",
           desc: "Enlarged pores from excess oil, reduced elasticity, and clogged follicles. Measured across forehead, left cheek, right cheek, and jaw. Total is the average of all four sub-scores. Ratings: 90\u2013100 None, 70\u201389 Mild, 50\u201369 Moderate, 30\u201349 Severe.",
-          regions: [],
+          regions: ["face"],
           dials: [
               { path: "result.score_info.pores_score", label: "Overall Pores", dir: "higher_is_better", scale: "score" },
               { path: "result.score_info.pores_type_score.pores_forehead_score", label: "Forehead", dir: "higher_is_better", scale: "score" },
@@ -517,13 +517,13 @@
 
         { id: "brown_spots", name: "Brown Spots",
           desc: "Sun spots, age spots, and melasma from excess melanin. Concentration 0\u20130.09%: None, 0.10\u20130.30%: Mild, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
-          regions: ["brown_spot"],
+          regions: ["brown_spot", "mole"],
           dials: [{ path: "result.score_info.brown_spot_score", label: "Brown Spot Score", dir: "higher_is_better", scale: "score" }],
           color: { fill: "rgba(141,110,99,0.35)", stroke: "#8d6e63" } },
 
         { id: "sensitivity", name: "Sensitivity",
           desc: "Skin sensitivity indicates reactivity to environmental factors. Measured by affected area and redness. Area 0\u20130.09%: None, 0.10\u20130.30%: Mild, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
-          regions: ["red_spot"],
+          regions: ["face"],
           dials: [
               { path: "result.score_info.sensitivity_score", label: "Sensitivity Score", dir: "higher_is_better", scale: "score" },
               { path: "result.score_info.red_spot_score", label: "Red Spot Score", dir: "higher_is_better", scale: "score" }
@@ -532,19 +532,19 @@
 
         { id: "eye_bags", name: "Eye Bags",
           desc: "Puffiness from weakened tissue structures around eyelids. Fat shifts into lower lids. Severity: 0 = None, 1 = Mild, 2 = Moderate, 3 = Severe.",
-          regions: [],
+          regions: ["eye_pouch"],
           dials: [{ path: "result.eye_pouch_severity.value", label: "Eye Bag Severity", dir: "lower_is_better", scale: "severity" }],
           color: { fill: "rgba(149,117,205,0.35)", stroke: "#9575cd" } },
 
         { id: "skin_quality", name: "Skin Quality",
           desc: "Skin quality score reflects skin type balance. Formula: 100 \u2212 (water_score + oily_intensity_score) / 2. Lower = healthier. 1\u201315: Neutral (best), 16\u201340: Dry, 41\u201360: Combination, 61\u2013100: Oily.",
-          regions: [],
+          regions: ["face"],
           dials: [{ path: "result.score_info.skin_type_score", label: "Skin Quality", dir: "lower_is_better", scale: "skin_type" }],
           color: { fill: "rgba(100,200,200,0.35)", stroke: "#64c8c8" } },
 
         { id: "melanin", name: "Melanin / Pigmentation",
           desc: "Melanin concentration reflects pigmentation levels. Formula: 100 \u2212 melanin_concentration. Brown area 0\u20130.09%: None, 0.10\u20130.30%: Mild, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
-          regions: ["brown_spot"],
+          regions: ["brown_spot", "mole"],
           dials: [
               { path: "result.score_info.melanin_score", label: "Melanin Score", dir: "higher_is_better", scale: "score" },
               { path: "result.score_info.brown_spot_score", label: "Brown Spot Score", dir: "higher_is_better", scale: "score" }
@@ -553,25 +553,25 @@
 
         { id: "roughness", name: "Roughness",
           desc: "Skin roughness reflects surface smoothness. Formula: 100 \u2212 rough_severity. Rough area 0\u20130.06%: Smooth, 0.07\u20130.20%: Mild, 0.21\u20130.50%: Moderate, 0.51%+: Severe.",
-          regions: [],
+          regions: ["face"],
           dials: [{ path: "result.score_info.rough_score", label: "Roughness Score", dir: "higher_is_better", scale: "score" }],
           color: { fill: "rgba(77,208,225,0.35)", stroke: "#4dd0e1" } },
 
         { id: "moisture", name: "Moisture",
           desc: "Skin moisture indicates hydration levels. Formula: 100 \u2212 water_severity. Water area 0\u20130.09%: Hydrated, 0.10\u20130.30%: Mild Dehydration, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
-          regions: [],
+          regions: ["face"],
           dials: [{ path: "result.score_info.water_score", label: "Moisture Score", dir: "higher_is_better", scale: "score" }],
           color: { fill: "rgba(77,182,172,0.35)", stroke: "#4db6ac" } },
 
         { id: "oiliness", name: "Oiliness",
           desc: "Oiliness measures excess sebum production. High oil leads to enlarged pores, acne, and shine. Ratings: 90\u2013100 None, 70\u201389 Mild, 50\u201369 Moderate, 30\u201349 Severe.",
-          regions: [],
+          regions: ["face"],
           dials: [{ path: "result.score_info.oily_intensity_score", label: "Oiliness Score", dir: "higher_is_better", scale: "score" }],
           color: { fill: "rgba(255,183,77,0.35)", stroke: "#ffb74d" } },
 
         { id: "severity_levels", name: "Severity Levels",
           desc: "Severity values (0\u20133 scale) across all detected conditions. 0 = None, 1 = Mild, 2 = Moderate, 3 = Severe. Lower is better.",
-          regions: [],
+          regions: ["face", "dark_circle", "eye_pouch"],
           dials: [
               { path: "result.eye_pouch_severity.value", label: "Eye Pouch", dir: "lower_is_better", scale: "severity" },
               { path: "result.dark_circle_severity.value", label: "Dark Circle", dir: "lower_is_better", scale: "severity" },
@@ -909,12 +909,16 @@
 
     // ── SVG Overlay Highlighting ──
     const REGION_COLORS = {
-        face:        { fill: "rgba(0,229,255,0.25)", stroke: "#00e5ff" },
-        dark_circle: { fill: "rgba(171,71,188,0.30)", stroke: "#ab47bc" },
-        brown_spot:  { fill: "rgba(141,110,99,0.30)", stroke: "#8d6e63" },
-        blackhead:   { fill: "rgba(255,238,88,0.30)", stroke: "#ffee58" },
-        acne:        { fill: "rgba(239,83,80,0.30)",  stroke: "#ef5350" },
-        acne_mark:   { fill: "rgba(239,83,80,0.30)",  stroke: "#ef5350" },
+        face:          { fill: "rgba(0,229,255,0.25)",   stroke: "#00e5ff" },
+        dark_circle:   { fill: "rgba(171,71,188,0.30)",  stroke: "#ab47bc" },
+        brown_spot:    { fill: "rgba(141,110,99,0.30)",  stroke: "#8d6e63" },
+        blackhead:     { fill: "rgba(255,238,88,0.30)",  stroke: "#ffee58" },
+        acne:          { fill: "rgba(239,83,80,0.30)",   stroke: "#ef5350" },
+        acne_mark:     { fill: "rgba(239,83,80,0.30)",   stroke: "#ef5350" },
+        acne_nodule:   { fill: "rgba(211,47,47,0.30)",   stroke: "#d32f2f" },
+        acne_pustule:  { fill: "rgba(255,112,67,0.30)",  stroke: "#ff7043" },
+        eye_pouch:     { fill: "rgba(149,117,205,0.30)", stroke: "#9575cd" },
+        mole:          { fill: "rgba(121,85,72,0.30)",   stroke: "#795548" },
     };
 
     function drawHighlight(regionKey) {
