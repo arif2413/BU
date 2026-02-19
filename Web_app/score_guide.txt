@@ -1,0 +1,207 @@
+AILabTools Skin Analysis Pro - Score Guide
+Source: https://www.ailabtools.com/docs/ai-portrait/analysis/skin-analysis-pro/degree-score
+==========================================
+
+All scores range from 0 to 100. HIGHER score = BETTER skin condition.
+
+
+=====================================
+TOTAL SCORE (total_score)
+=====================================
+Formula: ((wrinkle_score + pores_score + blackhead_score + acne_score + melanin_score) * 1.2
+         + (water_score + oily_intensity_score + rough_score) * 0.5
+         + sensitivity_score + dark_circle_score) / 10
+
+Rating:
+  95-100  Excellent
+  88-94   Good
+  76-87   Fair
+  70-75   Poor
+
+
+=====================================
+PORES SCORE (pores_score)
+=====================================
+Rating:
+  90-100  None (no visible pores)
+  70-89   Mild
+  50-69   Moderate
+  30-49   Severe
+
+Sub-scores:
+  Forehead Pore Score    = 100 - (forehead enlarged pore count * 0.1)
+  Right Cheek Pore Score = 100 - (right cheek enlarged pore count * 0.22)
+  Left Cheek Pore Score  = 100 - (left cheek enlarged pore count * 0.22)
+  Jaw Pore Score         = 100 - (chin enlarged pore count * 0.16)
+
+  Total Pores Score = average of all 4 sub-scores
+
+
+=====================================
+BLACKHEAD SCORE (blackhead_score)
+=====================================
+Formula: 100 - (blackhead_count * 0.3)
+  One blackhead costs approximately 0.3 points.
+
+Rating:
+  Blackhead Count   Score Range   Severity
+  0-30              90-100        None
+  31-100            70-89         Mild
+  101-160           50-69         Moderate
+  161+              30-49         Severe
+
+
+=====================================
+ACNE SCORE (acne_score)
+=====================================
+Formula: 100 - (closed_comedones count * 1.7)
+             - (acne/papule count * 2.4)
+             - (acne_pustule count * 4.8)
+             - (acne_nodule count * 9.8)
+
+Rating:
+  90-100  None
+  70-89   Mild
+  50-69   Moderate
+  30-49   Severe
+
+Point costs per item:
+  Closed comedone  = 1.7 points
+  Papule (acne)    = 2.4 points
+  Pustule          = 4.8 points
+  Nodule           = 9.8 points
+
+
+=====================================
+WRINKLE SCORE (wrinkle_score)
+=====================================
+Rating:
+  90-100  None
+  70-89   Mild
+  50-69   Moderate
+  30-49   Severe
+
+
+=====================================
+DARK CIRCLE SCORE (dark_circle_score)
+=====================================
+Rating:
+  90-100  None
+  70-89   Mild
+  50-69   Moderate
+  30-49   Severe
+
+Severity deduction points by dark circle type:
+  Type                                  None  Mild  Moderate  Severe
+  Pigmented (dark_circle_pigment)          0     7       11      16
+  Vascular (dark_circle_rete)              0     9       15      20
+  Structural (dark_circle_structural)      0    11       19      28
+
+Sub-scores:
+  Left Eye Dark Circle Score  = 100 - severity score (from table above)
+  Right Eye Dark Circle Score = 100 - severity score (from table above)
+  Total Dark Circle Score = 100 - (100 - left_score) - (100 - right_score)
+
+
+=====================================
+SKIN QUALITY SCORE (skin_type_score)
+=====================================
+Formula: 100 - (water_score + oily_intensity_score) / 2
+
+Rating (lower score = healthier skin type):
+  1-15    Neutral skin (best)
+  16-40   Dry skin
+  41-60   Combination skin
+  61-100  Oily skin
+
+
+=====================================
+MOISTURE SCORE (water_score)
+=====================================
+Formula: 100 - water_severity
+
+Rating:
+  Water Area %      Score Range   Severity
+  0-0.09            90-100        None (well hydrated)
+  0.10-0.30         70-89         Mild dehydration
+  0.31-0.60         50-69         Moderate dehydration
+  0.61+             30-49         Severe dehydration
+
+
+=====================================
+SENSITIVITY SCORE (sensitivity_score)
+=====================================
+Formula: 100 - sensitivity_intensity
+
+Rating:
+  Sensitivity Area %   Score Range   Severity
+  0-0.09               90-100        None
+  0.10-0.30            70-89         Mild
+  0.31-0.60            50-69         Moderate
+  0.61+                30-49         Severe
+
+
+=====================================
+MELANIN/PIGMENTATION SCORE (melanin_score)
+=====================================
+Formula: 100 - melanin_concentration
+
+Rating:
+  Brown Area %    Score Range   Severity
+  0-0.09          90-100        None
+  0.10-0.30       70-89         Mild
+  0.31-0.60       50-69         Moderate
+  0.61+           30-49         Severe
+
+
+=====================================
+ROUGHNESS SCORE (rough_score)
+=====================================
+Formula: 100 - rough_severity
+
+Rating:
+  Rough Area %    Score Range   Severity
+  0-0.06          90-100        None (smooth)
+  0.07-0.20       70-89         Mild
+  0.21-0.50       50-69         Moderate
+  0.51+           30-49         Severe
+
+
+=====================================
+OILINESS SCORE (oily_intensity_score)
+=====================================
+Rating:
+  90-100  None (no oiliness)
+  70-89   Mild
+  50-69   Moderate
+  30-49   Severe
+
+
+=====================================
+SEVERITY LEVELS (used across wrinkles, pores, eye bags, etc.)
+=====================================
+  0 = None
+  1 = Mild
+  2 = Moderate
+  3 = Severe
+
+
+=====================================
+SUMMARY
+=====================================
+For ALL scores (except skin_type_score):
+  Higher score = Better skin condition
+  90-100 = Excellent / None (no issues)
+  70-89  = Mild issues
+  50-69  = Moderate issues
+  30-49  = Severe issues
+
+For skin_type_score:
+  Lower = healthier (neutral skin)
+  Higher = more oily/imbalanced
+
+For severity values (0-3 scale):
+  Lower = better (0 = none, 3 = severe)
+
+For counts (acne, blackheads, pores, etc.):
+  Lower = better (fewer issues)

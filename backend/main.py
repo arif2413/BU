@@ -1,14 +1,20 @@
 """
 FastAPI backend for skin analysis - accepts image upload, returns metrics + annotated image.
+Saves each analysis (image + JSON results) for before/after comparison.
+Serves the Web_app/ frontend as static files.
 """
 import os
+import json
 import logging
+from pathlib import Path
+from datetime import datetime
 from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import FileResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 from analyzer import run_analysis
@@ -16,6 +22,9 @@ from analyzer import run_analysis
 load_dotenv()
 
 app = FastAPI(title="Skin Analysis API")
+
+UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,348 +34,209 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Skin Analysis</title>
-    <style>
-        * { box-sizing: border-box; }
-        body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #fff; margin: 0; padding: 24px; }
-        h1 { margin-bottom: 8px; }
-        .subtitle { color: #a0a0a0; margin-bottom: 24px; }
-        .upload-zone { position: relative; border: 2px dashed #4a90d9; border-radius: 12px; padding: 48px; text-align: center; cursor: pointer; margin-bottom: 16px; display: block; }
-        .upload-zone:hover { background: #252540; }
-        .upload-zone.dragover { border-color: #6ab0ff; background: #252540; }
-        .file-input-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
-        .choose-btn { display: inline-block; margin-top: 12px; padding: 10px 24px; background: #4a90d9; color: #fff; border-radius: 8px; cursor: pointer; font-size: 14px; }
-        .choose-btn:hover { background: #5a9fe9; }
-        .btn { background: #4a90d9; color: #fff; border: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; cursor: pointer; }
-        .btn:hover { background: #5a9fe9; }
-        .btn:disabled { background: #555; cursor: not-allowed; }
-        .preview { max-width: 100%; max-height: 300px; border-radius: 8px; margin: 16px 0; }
-        .results { margin-top: 32px; padding-top: 24px; border-top: 1px solid #333; }
-        .results-flex { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
-        .result-img-wrap { position: relative; flex-shrink: 0; }
-        .result-img { max-width: 100%; border-radius: 8px; display: block; }
-        .result-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
-        .metrics { background: #252540; border-radius: 8px; padding: 20px; min-width: 280px; flex: 1; }
-        .metric-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; cursor: pointer; border-radius: 6px; transition: background 0.15s; width: 100%; }
-        .metric-row:hover { background: #333355; }
-        .metric-row.active { background: #2a3a5a; outline: 1px solid #4a90d9; }
-        .metric-item { display: flex; flex-direction: column; width: 100%; border-bottom: 1px solid #333; padding-bottom: 4px; }
-        .metric-item:last-child { border-bottom: none; }
-        .metric-row[data-region=""] { cursor: default; }
-        .metric-row[data-region=""]:hover { background: transparent; }
-        .metric-row .key { flex: 1; min-width: 0; }
-        .metric-row .key.highlightable { color: #4a90d9; }
-        .metric-row .key.non-highlightable { color: #888; }
-        .metric-row .val { flex-shrink: 0; margin-left: 12px; color: #fff; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
-        .metric-row .row-content { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        .metric-arrow { display: flex; justify-content: center; padding: 4px 0; cursor: pointer; color: #6ab0ff; font-size: 12px; transition: transform 0.2s; }
-        .metric-arrow:hover { color: #8ac8ff; }
-        .metric-arrow.expanded { transform: rotate(180deg); }
-        .metric-explain { background: #1a1a2e; border: 1px solid #333; border-radius: 6px; padding: 10px 12px; margin-top: 4px; font-size: 12px; color: #b0b0b0; line-height: 1.4; display: none; }
-        .metric-explain.show { display: block; }
-        .metrics { max-height: 70vh; overflow-y: auto; }
-        .error { color: #ff6b6b; margin-top: 16px; }
-        .loading { color: #4a90d9; margin-top: 16px; }
-    </style>
-</head>
-<body>
-    <h1>Skin Analysis</h1>
-    <p class="subtitle">Upload a face image (JPEG or PNG) for skin analysis</p>
 
-    <label class="upload-zone" id="zone" for="file">
-        <p id="zone-text">Click the button below or drag image here</p>
-        <span class="choose-btn" id="choose-btn">Choose Image</span>
-        <img id="preview" class="preview" style="display:none;">
-    </label>
-    <input type="file" id="file" accept="image/jpeg,image/png,image/jpg,image/webp" class="file-input-hidden">
+COMPARE_KEYS = [
+    "result.skin_age",
+    "result.skin_type.skin_type",
+    "result.skin_color.skin_color_name",
+    "result.skin_color.ita_name",
+    "result.skin_color.ha_name",
+    "result.score_info.total_score",
+    "result.score_info.wrinkle_score",
+    "result.score_info.pores_score",
+    "result.score_info.blackhead_score",
+    "result.score_info.acne_score",
+    "result.score_info.dark_circle_score",
+    "result.score_info.sensitivity_score",
+    "result.score_info.brown_spot_score",
+    "result.score_info.closed_comedones_score",
+    "result.score_info.eye_bag_score",
+    "result.score_info.pigmentation_score",
+    "result.score_info.mole_score",
+    "result.score_info.texture_score",
+    "result.score_info.oil_score",
+    "result.score_info.moisture_score",
+    "result.acne.count",
+    "result.acne_mark.count",
+    "result.brown_spot.count",
+    "result.closed_comedones.count",
+    "result.mole.count",
+    "result.blackhead.count",
+    "result.blackhead.severity",
+    "result.sensitivity.area_percentage",
+    "result.sensitivity.intensity",
+    "result.dark_circle_mark.left_dark_circle_severity",
+    "result.dark_circle_mark.right_dark_circle_severity",
+    "result.dark_circle_mark.left_dark_circle_type_name",
+    "result.dark_circle_mark.right_dark_circle_type_name",
+    "result.eye_bag.severity",
+    "result.forehead_wrinkle.severity",
+    "result.left_nasolabial_fold.severity",
+    "result.right_nasolabial_fold.severity",
+    "result.left_crows_feet.severity",
+    "result.right_crows_feet.severity",
+    "result.left_eye_finelines.severity",
+    "result.right_eye_finelines.severity",
+    "result.glabellar_wrinkle.severity",
+    "result.pores_forehead.severity",
+    "result.pores_left_cheek.severity",
+    "result.pores_right_cheek.severity",
+    "result.pores_chin.severity",
+    "result.skin_type.oily_severity",
+]
 
-    <button class="btn" id="analyze" disabled>Analyze</button>
+COMPARE_LABELS = {
+    "result.skin_age": "Skin Age",
+    "result.skin_type.skin_type": "Skin Type",
+    "result.skin_color.skin_color_name": "Skin Color",
+    "result.skin_color.ita_name": "Skin Color (ITA)",
+    "result.skin_color.ha_name": "Skin Tone (HA)",
+    "result.score_info.total_score": "Total Score",
+    "result.score_info.wrinkle_score": "Wrinkle Score",
+    "result.score_info.pores_score": "Pores Score",
+    "result.score_info.blackhead_score": "Blackhead Score",
+    "result.score_info.acne_score": "Acne Score",
+    "result.score_info.dark_circle_score": "Dark Circle Score",
+    "result.score_info.sensitivity_score": "Sensitivity Score",
+    "result.score_info.brown_spot_score": "Brown Spot Score",
+    "result.score_info.closed_comedones_score": "Comedones Score",
+    "result.score_info.eye_bag_score": "Eye Bag Score",
+    "result.score_info.pigmentation_score": "Pigmentation Score",
+    "result.score_info.mole_score": "Mole Score",
+    "result.score_info.texture_score": "Texture Score",
+    "result.score_info.oil_score": "Oil Score",
+    "result.score_info.moisture_score": "Moisture Score",
+    "result.acne.count": "Acne Count",
+    "result.acne_mark.count": "Acne Marks Count",
+    "result.brown_spot.count": "Brown Spots Count",
+    "result.closed_comedones.count": "Comedones Count",
+    "result.mole.count": "Mole Count",
+    "result.blackhead.count": "Blackhead Count",
+    "result.blackhead.severity": "Blackhead Severity",
+    "result.sensitivity.area_percentage": "Sensitivity Area %",
+    "result.sensitivity.intensity": "Sensitivity Intensity",
+    "result.dark_circle_mark.left_dark_circle_severity": "Dark Circle Severity (Left)",
+    "result.dark_circle_mark.right_dark_circle_severity": "Dark Circle Severity (Right)",
+    "result.dark_circle_mark.left_dark_circle_type_name": "Dark Circle Type (Left)",
+    "result.dark_circle_mark.right_dark_circle_type_name": "Dark Circle Type (Right)",
+    "result.eye_bag.severity": "Eye Bag Severity",
+    "result.forehead_wrinkle.severity": "Forehead Wrinkle Severity",
+    "result.left_nasolabial_fold.severity": "Nasolabial Fold Severity (Left)",
+    "result.right_nasolabial_fold.severity": "Nasolabial Fold Severity (Right)",
+    "result.left_crows_feet.severity": "Crow's Feet Severity (Left)",
+    "result.right_crows_feet.severity": "Crow's Feet Severity (Right)",
+    "result.left_eye_finelines.severity": "Eye Fine Lines Severity (Left)",
+    "result.right_eye_finelines.severity": "Eye Fine Lines Severity (Right)",
+    "result.glabellar_wrinkle.severity": "Glabellar Wrinkle Severity",
+    "result.pores_forehead.severity": "Pore Severity (Forehead)",
+    "result.pores_left_cheek.severity": "Pore Severity (Left Cheek)",
+    "result.pores_right_cheek.severity": "Pore Severity (Right Cheek)",
+    "result.pores_chin.severity": "Pore Severity (Chin)",
+    "result.skin_type.oily_severity": "Oiliness Severity",
+}
 
-    <div id="loading" class="loading" style="display:none;">Analyzing...</div>
-    <div id="error" class="error" style="display:none;"></div>
-    <div id="results" class="results" style="display:none;">
-        <h2>Results</h2>
-        <p class="subtitle" style="margin-bottom:16px;">Click a metric on the right to highlight that area on the image</p>
-        <div class="results-flex">
-            <div class="result-img-wrap" id="img-wrap">
-                <img id="result-img" class="result-img">
-                <svg id="result-overlay" class="result-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
-            </div>
-            <div class="metrics" id="metrics"></div>
-        </div>
-        <details style="margin-top:20px;"><summary style="cursor:pointer;color:#4a90d9;">Raw JSON output</summary><pre id="raw-output" style="background:#252540;padding:12px;border-radius:8px;font-size:11px;overflow:auto;max-height:200px;"></pre></details>
-    </div>
+COMPARE_CATEGORIES = {
+    "result.skin_age": "Skin Properties",
+    "result.skin_type.skin_type": "Skin Properties",
+    "result.skin_color.skin_color_name": "Skin Properties",
+    "result.skin_color.ita_name": "Skin Properties",
+    "result.skin_color.ha_name": "Skin Properties",
+    "result.skin_type.oily_severity": "Skin Properties",
+    "result.score_info.total_score": "Scores",
+    "result.score_info.wrinkle_score": "Scores",
+    "result.score_info.pores_score": "Scores",
+    "result.score_info.blackhead_score": "Scores",
+    "result.score_info.acne_score": "Scores",
+    "result.score_info.dark_circle_score": "Scores",
+    "result.score_info.sensitivity_score": "Scores",
+    "result.score_info.brown_spot_score": "Scores",
+    "result.score_info.closed_comedones_score": "Scores",
+    "result.score_info.eye_bag_score": "Scores",
+    "result.score_info.pigmentation_score": "Scores",
+    "result.score_info.mole_score": "Scores",
+    "result.score_info.texture_score": "Scores",
+    "result.score_info.oil_score": "Scores",
+    "result.score_info.moisture_score": "Scores",
+    "result.acne.count": "Counts",
+    "result.acne_mark.count": "Counts",
+    "result.brown_spot.count": "Counts",
+    "result.closed_comedones.count": "Counts",
+    "result.mole.count": "Counts",
+    "result.blackhead.count": "Counts",
+    "result.blackhead.severity": "Severity",
+    "result.sensitivity.area_percentage": "Sensitivity",
+    "result.sensitivity.intensity": "Sensitivity",
+    "result.dark_circle_mark.left_dark_circle_severity": "Eye Area",
+    "result.dark_circle_mark.right_dark_circle_severity": "Eye Area",
+    "result.dark_circle_mark.left_dark_circle_type_name": "Eye Area",
+    "result.dark_circle_mark.right_dark_circle_type_name": "Eye Area",
+    "result.eye_bag.severity": "Eye Area",
+    "result.forehead_wrinkle.severity": "Wrinkles",
+    "result.left_nasolabial_fold.severity": "Wrinkles",
+    "result.right_nasolabial_fold.severity": "Wrinkles",
+    "result.left_crows_feet.severity": "Wrinkles",
+    "result.right_crows_feet.severity": "Wrinkles",
+    "result.left_eye_finelines.severity": "Wrinkles",
+    "result.right_eye_finelines.severity": "Wrinkles",
+    "result.glabellar_wrinkle.severity": "Wrinkles",
+    "result.pores_forehead.severity": "Pores",
+    "result.pores_left_cheek.severity": "Pores",
+    "result.pores_right_cheek.severity": "Pores",
+    "result.pores_chin.severity": "Pores",
+}
 
-    <script>
-        const zone = document.getElementById('zone');
-        const fileInput = document.getElementById('file');
-        const preview = document.getElementById('preview');
-        const zoneText = document.getElementById('zone-text');
-        const analyzeBtn = document.getElementById('analyze');
-        const loading = document.getElementById('loading');
-        const errorDiv = document.getElementById('error');
-        const resultsDiv = document.getElementById('results');
-        const resultImg = document.getElementById('result-img');
-        const metricsDiv = document.getElementById('metrics');
-        const rawPre = document.getElementById('raw-output');
-        const overlaySvg = document.getElementById('result-overlay');
-        let regionsData = {};
-        let imgW = 0, imgH = 0;
+HIGHER_IS_BETTER = {
+    "result.score_info.total_score",
+    "result.score_info.wrinkle_score",
+    "result.score_info.pores_score",
+    "result.score_info.blackhead_score",
+    "result.score_info.acne_score",
+    "result.score_info.dark_circle_score",
+    "result.score_info.sensitivity_score",
+    "result.score_info.brown_spot_score",
+    "result.score_info.closed_comedones_score",
+    "result.score_info.eye_bag_score",
+    "result.score_info.pigmentation_score",
+    "result.score_info.mole_score",
+    "result.score_info.texture_score",
+    "result.score_info.oil_score",
+    "result.score_info.moisture_score",
+}
 
-        function drawHighlight(regionKey) {
-            overlaySvg.innerHTML = '';
-            const keys = regionKey === 'acne' ? ['acne', 'acne_mark'] : [regionKey];
-            let rects = [];
-            for (const k of keys) {
-                if (regionsData[k]) rects = rects.concat(regionsData[k]);
-            }
-            if (!rects.length) return;
-            for (const r of rects) {
-                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                rect.setAttribute('x', r.left);
-                rect.setAttribute('y', r.top);
-                rect.setAttribute('width', r.width);
-                rect.setAttribute('height', r.height);
-                rect.setAttribute('fill', 'rgba(74, 144, 217, 0.35)');
-                rect.setAttribute('stroke', '#4a90d9');
-                rect.setAttribute('stroke-width', '2');
-                overlaySvg.appendChild(rect);
-            }
-        }
-
-        function clearHighlight() {
-            overlaySvg.innerHTML = '';
-        }
-
-        zone.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); };
-        zone.ondragleave = (e) => { e.preventDefault(); zone.classList.remove('dragover'); };
-        zone.ondrop = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            zone.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files && files.length && files[0].type.startsWith('image/')) {
-                try {
-                    const dt = new DataTransfer();
-                    dt.items.add(files[0]);
-                    fileInput.files = dt.files;
-                    updatePreview();
-                } catch (err) {
-                    console.error('Drop failed:', err);
-                    errorDiv.textContent = 'Could not load dropped file. Try using Choose Image instead.';
-                    errorDiv.style.display = 'block';
-                }
-            }
-        };
-
-        const chooseBtn = document.getElementById('choose-btn');
-        fileInput.onchange = updatePreview;
-        function updatePreview() {
-            const file = fileInput.files[0];
-            if (!file) {
-                preview.style.display = 'none';
-                zoneText.style.display = 'block';
-                chooseBtn.textContent = 'Choose Image';
-                analyzeBtn.disabled = true;
-                if (preview.src) URL.revokeObjectURL(preview.src);
-                return;
-            }
-            if (preview.src) URL.revokeObjectURL(preview.src);
-            preview.src = URL.createObjectURL(file);
-            preview.style.display = 'block';
-            zoneText.style.display = 'none';
-            chooseBtn.textContent = 'Change Image';
-            analyzeBtn.disabled = false;
-            errorDiv.style.display = 'none';
-            resultsDiv.style.display = 'none';
-        }
-
-        analyzeBtn.onclick = async () => {
-            const file = fileInput.files[0];
-            if (!file) {
-                errorDiv.textContent = 'Please select an image first.';
-                errorDiv.style.display = 'block';
-                return;
-            }
-            analyzeBtn.disabled = true;
-            loading.style.display = 'block';
-            errorDiv.style.display = 'none';
-            resultsDiv.style.display = 'none';
-
-            const formData = new FormData();
-            formData.append('image', file, file.name || 'image.jpg');
-
-            try {
-                const res = await fetch('/analyze', { method: 'POST', body: formData });
-                let data;
-                try { data = await res.json(); } catch (_) { data = {}; }
-                if (!res.ok) {
-                    let msg = 'Analysis failed';
-                    if (data.detail) {
-                        if (typeof data.detail === 'string') msg = data.detail;
-                        else if (Array.isArray(data.detail) && data.detail.length) msg = data.detail.map(d => d.msg || JSON.stringify(d)).join('; ');
-                        else msg = JSON.stringify(data.detail);
-                    }
-                    throw new Error(msg);
-                }
-
-                resultImg.src = data.image_base64 || '';
-                resultImg.alt = 'Annotated analysis result';
-                regionsData = data.regions || {};
-                imgW = data.image_width || 0;
-                imgH = data.image_height || 0;
-                overlaySvg.setAttribute('viewBox', '0 0 ' + imgW + ' ' + imgH);
-                overlaySvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-                clearHighlight();
-
-                function formatVal(v) {
-                    if (v === null || v === undefined) return '-';
-                    if (typeof v === 'boolean') return String(v);
-                    if (typeof v === 'number') return v % 1 === 0 ? v : Math.round(v * 100) / 100;
-                    if (typeof v === 'string') return v.length > 60 ? v.slice(0, 60) + '...' : v;
-                    if (Array.isArray(v)) {
-                        if (v.length === 0) return '[]';
-                        if (v.length <= 4 && v.every(x => typeof x !== 'object' || x === null)) return JSON.stringify(v);
-                        if (v.length > 8) return '[' + v.length + ' items]';
-                        return JSON.stringify(v.slice(0, 4)) + (v.length > 4 ? '...' : '');
-                    }
-                    if (typeof v === 'object') return '{...}';
-                    return String(v);
-                }
-                function keyToRegion(key) {
-                    const k = key.toLowerCase().replace(/\\s/g, '_');
-                    if (k.includes('face_rectangle') || k.includes('face.rectangle')) return 'face';
-                    if (k.includes('dark_circle_mark') || k.includes('dark.circle.mark')) return 'dark_circle';
-                    if (k.includes('brown_spot') || k.includes('brown.spot')) return 'brown_spot';
-                    if (k.includes('closed_comedones') || k.includes('closed.comedones')) return 'blackhead';
-                    if (k.includes('acne_mark') || k.includes('acne.mark')) return 'acne_mark';
-                    if (k.includes('acne') && !k.includes('acne_mark')) return 'acne';
-                    return '';
-                }
-                function getExplanation(fullKey) {
-                    const k = fullKey.toLowerCase().replace(/\\s/g, '_');
-                    const explanations = {
-                        'face_rectangle': 'The bounding box around the detected face. Used to locate the face region for analysis.',
-                        'skin_age': 'Estimated skin age based on visible signs like wrinkles, texture, and pigmentation. May differ from actual age.',
-                        'score_info': 'Overall and category-specific scores (0-100). Higher is generally better for skin health.',
-                        'total_score': 'Combined skin health score across all analyzed dimensions.',
-                        'wrinkle': 'Wrinkle severity score. Measures forehead lines, crow\'s feet, fine lines, and nasolabial folds.',
-                        'pores': 'Pore visibility and enlargement score. Larger pores appear more prominent.',
-                        'blackhead': 'Blackhead (open comedones) severity. Clogged pores with oxidized sebum.',
-                        'acne': 'Active acne severity: papules, pustules, nodules. Inflamed blemishes on the skin.',
-                        'acne_mark': 'Acne marks or post-inflammatory hyperpigmentation left after acne heals.',
-                        'dark_circle': 'Dark circles under the eyes. Can be vascular, pigmented, or structural.',
-                        'brown_spot': 'Brown spots (sun spots, age spots). Areas of increased pigmentation.',
-                        'closed_comedones': 'Closed comedones (whiteheads). Small bumps from clogged pores.',
-                        'skin_type': 'Skin type: Oily, Dry, Normal, or Combination. Affects product recommendations.',
-                        'skin_tone': 'Skin color classification: Translucent White, Fair, Natural, Wheatish, or Dark.',
-                        'skin_undertone': 'Underlying skin tone: warm, cool, or neutral. Affects color matching.',
-                        'sensitivity': 'Skin sensitivity level and areas. Red zones indicate irritation or sensitivity.',
-                        'eye_bag': 'Puffiness or bags under the eyes. Can be due to fluid retention or aging.',
-                        'pigmentation': 'Overall skin pigmentation level. Uneven tone or dark patches.',
-                        'mole': 'Detected moles. Location and count for monitoring.',
-                        'glabellar': 'Lines between the eyebrows (frown lines).',
-                        'nasolabial': 'Nasolabial folds: lines from nose to mouth corners.',
-                        'forehead': 'Forehead wrinkles or lines.',
-                        'crow': 'Crow\'s feet: fine lines around the outer corners of the eyes.',
-                        'fine_line': 'Fine lines, often under the eyes or on the forehead.',
-                        'texture': 'Skin texture: smoothness, roughness, or unevenness.',
-                        'oil': 'Oiliness level. Affects shine and pore appearance.',
-                        'moisture': 'Skin moisture or hydration level.',
-                        'left_eye_rect': 'Left eye region for dark circle analysis.',
-                        'right_eye_rect': 'Right eye region for dark circle analysis.',
-                        'rectangle': 'Bounding box coordinates of the detected region.',
-                        'left': 'Left coordinate (X) of the bounding box.',
-                        'top': 'Top coordinate (Y) of the bounding box.',
-                        'width': 'Width of the detected region in pixels.',
-                        'height': 'Height of the detected region in pixels.',
-                        'count': 'Number of detected items (e.g., spots, acne lesions).',
-                        'value': 'Numeric value for this parameter.',
-                        'severity': 'Severity level (e.g., mild, moderate, severe).',
-                        'error_code': 'API response code. 0 means success.',
-                        'request_id': 'Unique request identifier for support.',
-                    };
-                    for (const [pattern, explanation] of Object.entries(explanations)) {
-                        if (k.includes(pattern)) return explanation;
-                    }
-                    return 'This parameter is part of the skin analysis result. See the full documentation for details.';
-                }
-                function flattenObj(obj, prefix) {
-                    const out = [];
-                    if (!obj || typeof obj !== 'object') return out;
-                    for (const k of Object.keys(obj).sort()) {
-                        const fullKey = prefix ? prefix + '.' + k : k;
-                        const v = obj[k];
-                        if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
-                            out.push(...flattenObj(v, fullKey));
-                        } else {
-                            const displayKey = fullKey.replace(/_/g, ' ').replace(/\\./g, ' > ').replace(/\\b\\w/g, function(c){ return c.toUpperCase(); });
-                            out.push({ key: displayKey, value: formatVal(v), region: keyToRegion(fullKey), fullKey: fullKey });
-                        }
-                    }
-                    return out;
-                }
-                function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-                const allParams = flattenObj(data.metrics || {}, '');
-                metricsDiv.innerHTML = allParams.map((p, i) => {
-                    const hl = p.region && regionsData[p.region] ? 'highlightable' : 'non-highlightable';
-                    const region = p.region || '';
-                    const explain = esc(getExplanation(p.fullKey));
-                    return '<div class="metric-item"><div class="metric-row" data-region="' + esc(region) + '"><div class="row-content"><span class="key ' + hl + '">' + esc(p.key) + '</span><span class="val">' + esc(p.value) + '</span></div></div><div class="metric-arrow" data-idx="' + i + '" title="Learn more">&#9660;</div><div class="metric-explain" data-idx="' + i + '">' + explain + '</div></div>';
-                }).join('');
-
-                metricsDiv.querySelectorAll('.metric-row').forEach(row => {
-                    row.onclick = (e) => {
-                        if (e.target.closest('.metric-arrow')) return;
-                        metricsDiv.querySelectorAll('.metric-row').forEach(r => r.classList.remove('active'));
-                        const region = row.dataset.region;
-                        if (region && regionsData[region]) {
-                            row.classList.add('active');
-                            drawHighlight(region);
-                        } else {
-                            clearHighlight();
-                        }
-                    };
-                });
-                metricsDiv.querySelectorAll('.metric-arrow').forEach(arrow => {
-                    arrow.onclick = (e) => {
-                        e.stopPropagation();
-                        const idx = arrow.dataset.idx;
-                        const explain = metricsDiv.querySelector('.metric-explain[data-idx="' + idx + '"]');
-                        const isOpen = explain.classList.contains('show');
-                        metricsDiv.querySelectorAll('.metric-explain').forEach(el => el.classList.remove('show'));
-                        metricsDiv.querySelectorAll('.metric-arrow').forEach(el => el.classList.remove('expanded'));
-                        if (!isOpen) {
-                            explain.classList.add('show');
-                            arrow.classList.add('expanded');
-                        }
-                    };
-                });
-                rawPre.textContent = JSON.stringify(data, null, 2).slice(0, 5000);
-                resultsDiv.style.display = 'block';
-            } catch (err) {
-                errorDiv.textContent = err instanceof Error ? err.message : String(err);
-                errorDiv.style.display = 'block';
-            } finally {
-                loading.style.display = 'none';
-                analyzeBtn.disabled = false;
-            }
-        };
-    </script>
-</body>
-</html>
-"""
+LOWER_IS_BETTER = {
+    "result.skin_age",
+    "result.acne.count",
+    "result.acne_mark.count",
+    "result.brown_spot.count",
+    "result.closed_comedones.count",
+    "result.blackhead.count",
+    "result.sensitivity.area_percentage",
+    "result.sensitivity.intensity",
+}
 
 
-@app.get("/", response_class=HTMLResponse)
-def root():
-    return UPLOAD_HTML
+def _get_nested(obj, dotted_key):
+    """Safely traverse a nested dict by dotted key."""
+    parts = dotted_key.split(".")
+    cur = obj
+    for p in parts:
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(p)
+    return cur
+
+
+def _judge_change(key, before_val, after_val):
+    """Return 'improved', 'worsened', 'unchanged', or 'changed'."""
+    if before_val == after_val:
+        return "unchanged"
+    if not isinstance(before_val, (int, float)) or not isinstance(after_val, (int, float)):
+        return "changed"
+    if key in HIGHER_IS_BETTER:
+        return "improved" if after_val > before_val else "worsened"
+    if key in LOWER_IS_BETTER:
+        return "improved" if after_val < before_val else "worsened"
+    return "changed"
 
 
 @app.post("/analyze")
@@ -391,15 +261,133 @@ async def analyze(image: UploadFile = File(..., description="Image file (JPEG/PN
         logger.warning("Rejected: empty file")
         raise HTTPException(status_code=400, detail="Empty file")
 
+    analysis_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ext = Path(image.filename).suffix if image.filename else ".jpg"
+    if ext.lower() not in (".jpg", ".jpeg", ".png", ".webp"):
+        ext = ".jpg"
+    img_path = UPLOADS_DIR / f"{analysis_id}{ext}"
+    try:
+        img_path.write_bytes(image_bytes)
+        logger.info("Saved upload to %s", img_path)
+    except Exception as e:
+        logger.warning("Could not save upload: %s", e)
+
     result = run_analysis(image_bytes)
 
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result.get("error", "Analysis failed"))
 
+    record = {
+        "id": analysis_id,
+        "timestamp": datetime.now().isoformat(),
+        "image_file": img_path.name,
+        "metrics": result["metrics"],
+        "image_base64": result["image_base64"],
+    }
+    json_path = UPLOADS_DIR / f"{analysis_id}.json"
+    try:
+        json_path.write_text(json.dumps(record, default=str), encoding="utf-8")
+        logger.info("Saved analysis JSON to %s", json_path)
+    except Exception as e:
+        logger.warning("Could not save analysis JSON: %s", e)
+
     return {
+        "id": analysis_id,
         "metrics": result["metrics"],
         "image_base64": result["image_base64"],
         "regions": result.get("regions", {}),
         "image_width": result.get("image_width"),
         "image_height": result.get("image_height"),
     }
+
+
+@app.get("/history")
+def history():
+    """List all past analyses, newest first."""
+    entries = []
+    for jf in sorted(UPLOADS_DIR.glob("*.json"), reverse=True):
+        try:
+            data = json.loads(jf.read_text(encoding="utf-8"))
+            entries.append({
+                "id": data.get("id", jf.stem),
+                "timestamp": data.get("timestamp", ""),
+                "image_file": data.get("image_file", ""),
+            })
+        except Exception:
+            continue
+    return entries
+
+
+@app.get("/history/{analysis_id}/thumb")
+def history_thumb(analysis_id: str):
+    """Return the original uploaded image for a given analysis."""
+    for ext in (".jpg", ".jpeg", ".png", ".webp"):
+        path = UPLOADS_DIR / f"{analysis_id}{ext}"
+        if path.exists():
+            media = "image/jpeg" if ext in (".jpg", ".jpeg") else f"image/{ext.lstrip('.')}"
+            return FileResponse(path, media_type=media)
+    raise HTTPException(status_code=404, detail="Image not found")
+
+
+@app.get("/compare/{before_id}/{after_id}")
+def compare(before_id: str, after_id: str):
+    """Compare two analyses, returning meaningful parameter differences."""
+    before_path = UPLOADS_DIR / f"{before_id}.json"
+    after_path = UPLOADS_DIR / f"{after_id}.json"
+
+    if not before_path.exists():
+        raise HTTPException(status_code=404, detail=f"Analysis '{before_id}' not found")
+    if not after_path.exists():
+        raise HTTPException(status_code=404, detail=f"Analysis '{after_id}' not found")
+
+    before_data = json.loads(before_path.read_text(encoding="utf-8"))
+    after_data = json.loads(after_path.read_text(encoding="utf-8"))
+    before_metrics = before_data.get("metrics", {})
+    after_metrics = after_data.get("metrics", {})
+
+    comparisons = []
+    for key in COMPARE_KEYS:
+        bv = _get_nested(before_metrics, key)
+        av = _get_nested(after_metrics, key)
+        if bv is None and av is None:
+            continue
+        label = COMPARE_LABELS.get(key, key)
+
+        def fmt(v):
+            if v is None:
+                return "-"
+            if isinstance(v, float):
+                return round(v, 2)
+            return v
+
+        verdict = _judge_change(key, bv, av)
+        is_numeric = isinstance(bv, (int, float)) or isinstance(av, (int, float))
+        if key in HIGHER_IS_BETTER:
+            direction = "higher_is_better"
+        elif key in LOWER_IS_BETTER:
+            direction = "lower_is_better"
+        else:
+            direction = "neutral"
+        comparisons.append({
+            "key": key,
+            "label": label,
+            "before": fmt(bv),
+            "after": fmt(av),
+            "verdict": verdict,
+            "category": COMPARE_CATEGORIES.get(key, "Other"),
+            "numeric": is_numeric,
+            "direction": direction,
+        })
+
+    return {
+        "before": {"id": before_id, "timestamp": before_data.get("timestamp", "")},
+        "after": {"id": after_id, "timestamp": after_data.get("timestamp", "")},
+        "comparisons": comparisons,
+    }
+
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "Web_app"
+if FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+else:
+    logger.warning("Frontend directory not found at %s", FRONTEND_DIR)

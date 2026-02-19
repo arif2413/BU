@@ -1,19 +1,18 @@
-# Skin Analysis Mobile App
+# Skin Analysis Web App
 
-Camera-based skin analysis app: take a photo on your phone, send to backend for analysis, view annotated results and metrics.
+Web-based skin analysis app: upload a face image, send to backend for analysis, view annotated results and metrics in your browser.
 
 ## Project Structure
 
 ```
 BU/
-├── backend/          # Python FastAPI server
-├── mobile/            # React Native app (iOS + Android)
-└── skin_analysis.py   # Standalone script (unchanged)
+├── backend/          # Python FastAPI server (API + web UI)
+└── skin_analysis.py  # Standalone script (unchanged)
 ```
 
 ## Quick Start
 
-### 1. Backend
+### 1. Backend & Web UI
 
 ```bash
 cd backend
@@ -22,22 +21,12 @@ pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-### 2. Mobile App
+### 2. Open in Browser
 
-**For Android emulator** (default config uses `10.0.2.2:8000`):
-```bash
-cd mobile
-npm install
-npx react-native run-android
-```
-
-**For physical device** on same WiFi:
-1. Get your computer's IP: `ipconfig` (Windows) or `ifconfig` (Mac/Linux)
-2. Edit `mobile/src/config.ts`: set `API_BASE_URL` to `http://YOUR_IP:8000`
-3. Run: `npx react-native run-android` or `run-ios`
+Go to **http://localhost:8000**
 
 ### 3. Flow
 
-1. Take photo (camera)
-2. Tap "Analyze" to send to backend
-3. View annotated image + metrics on device
+1. Upload an image (Choose Image or drag-and-drop)
+2. Click "Analyze" to send to backend
+3. View annotated image + metrics in the browser

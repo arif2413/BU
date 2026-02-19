@@ -30,7 +30,6 @@ git push -u origin main
 
 ## What's included
 
-- **backend/** - FastAPI skin analysis API (AILab Skin Analysis Pro)
-- **mobile/** - React Native app (camera + results)
+- **backend/** - FastAPI skin analysis API + web UI (AILab Skin Analysis Pro)
 - **skin_analysis.py** - Standalone analysis script
 - **.gitignore** - Excludes .env, 00000/ (sample images), __pycache__, etc.
