@@ -329,6 +329,17 @@ def history_thumb(analysis_id: str):
     raise HTTPException(status_code=404, detail="Image not found")
 
 
+@app.get("/history/{analysis_id}/data")
+def history_data(analysis_id: str):
+    """Return stored analysis data (metrics only, no base64 image)."""
+    json_path = UPLOADS_DIR / f"{analysis_id}.json"
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    data.pop("image_base64", None)
+    return data
+
+
 @app.get("/compare/{before_id}/{after_id}")
 def compare(before_id: str, after_id: str):
     """Compare two analyses, returning meaningful parameter differences."""

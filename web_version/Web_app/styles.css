@@ -1126,6 +1126,145 @@ main {
     text-align: center;
 }
 
+/* --- Comparison Condition Tab Bar --- */
+
+.comp-tab-bar {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 0 0 12px;
+    margin-bottom: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(74, 144, 217, 0.2) transparent;
+}
+
+.comp-tab-bar::-webkit-scrollbar { height: 4px; }
+.comp-tab-bar::-webkit-scrollbar-track { background: transparent; }
+.comp-tab-bar::-webkit-scrollbar-thumb { background: rgba(74, 144, 217, 0.2); border-radius: 2px; }
+
+.comp-panel { display: none; }
+.comp-panel.active { display: block; }
+
+/* --- Comparison Condition Content --- */
+
+.comp-cond-info {
+    margin-bottom: 18px;
+    padding: 0;
+}
+
+.comp-cond-info .cg-cell-inner {
+    padding: 20px;
+}
+
+.comp-cond-images {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+@media (max-width: 700px) {
+    .comp-cond-images { grid-template-columns: 1fr; }
+}
+
+.comp-img-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    gap: 12px;
+}
+
+.comp-side-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+}
+
+.comp-side-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.comp-dot-before {
+    background: rgba(45, 142, 224, 0.9);
+    box-shadow: 0 0 8px rgba(45, 142, 224, 0.5);
+}
+
+.comp-dot-after {
+    background: rgba(168, 85, 247, 0.9);
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+.comp-side-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    position: relative;
+    z-index: 1;
+}
+
+.comp-label-before { color: #1a6fc4; }
+.comp-label-after { color: #8b45d9; }
+
+.comp-side-img {
+    width: 100%;
+    max-width: 280px;
+    display: block;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0, 60, 120, 0.08);
+    position: relative;
+    z-index: 1;
+}
+
+/* --- Comparison Combined Dial Grid --- */
+
+.comp-dial-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    justify-content: center;
+}
+
+.comp-dial-grid-sm .comp-dial-card {
+    width: 180px;
+    padding: 12px 10px 10px;
+}
+
+.comp-dial-grid-sm .comp-dial-card .dial-svg {
+    max-width: 160px;
+}
+
+.comp-dial-grid-sm .dial-footer {
+    flex-direction: column;
+    gap: 3px;
+    align-items: center;
+}
+
+.comp-dial-card {
+    flex: 0 0 auto;
+    width: 260px;
+    padding: 18px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+                box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.comp-dial-card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+        0 16px 48px rgba(74, 144, 217, 0.15),
+        0 4px 16px rgba(0, 60, 120, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
 /* --- Scrollbar --- */
 
 ::-webkit-scrollbar { width: 6px; }

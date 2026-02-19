@@ -611,6 +611,142 @@
         });
     }
 
+    // ══════════════════════════════════════════════════
+    //  COMPARISON CONDITION TABS
+    // ══════════════════════════════════════════════════
+
+    var BEFORE_COLOR = "rgba(45,142,224,0.95)";
+    var AFTER_COLOR  = "rgba(168,85,247,0.95)";
+
+    function isImproved(dir, bv, av) {
+        if (dir === "higher_is_better") return av > bv;
+        if (dir === "lower_is_better") return av < bv;
+        return av !== bv;
+    }
+
+    function buildCompareConditionTabs(compData, bFull, aFull) {
+        var tabBar = document.getElementById("comp-tab-bar");
+        var panels = document.getElementById("comp-panels");
+        if (!tabBar || !panels) return;
+
+        panels.querySelectorAll(".comp-panel-dynamic").forEach(function (el) { el.remove(); });
+
+        var bMetrics = (bFull && bFull.metrics) || {};
+        var aMetrics = (aFull && aFull.metrics) || {};
+        var bId = compData.before.id;
+        var aId = compData.after.id;
+        var bThumb = "/history/" + encodeURIComponent(bId) + "/thumb";
+        var aThumb = "/history/" + encodeURIComponent(aId) + "/thumb";
+
+        var tabHtml = '<button class="condition-tab active" data-cpanel="comp-panel-overview">Overview</button>';
+        var activeTabs = [];
+
+        CONDITION_TABS.forEach(function (tab) {
+            var hasBefore = tab.dials.some(function (d) {
+                return typeof getNestedVal(bMetrics, d.path) === "number";
+            });
+            var hasAfter = tab.dials.some(function (d) {
+                return typeof getNestedVal(aMetrics, d.path) === "number";
+            });
+            if (!hasBefore && !hasAfter) return;
+            activeTabs.push(tab);
+            tabHtml += '<button class="condition-tab" data-cpanel="comp-panel-' + tab.id + '">' + esc(tab.name) + "</button>";
+        });
+        tabBar.innerHTML = tabHtml;
+
+        activeTabs.forEach(function (tab) {
+            var panel = document.createElement("div");
+            panel.className = "comp-panel comp-panel-dynamic";
+            panel.id = "comp-panel-" + tab.id;
+
+            var dialsHtml = "";
+            var dialCount = 0;
+
+            tab.dials.forEach(function (d) {
+                var bv = getNestedVal(bMetrics, d.path);
+                var av = getNestedVal(aMetrics, d.path);
+                var bIsNum = typeof bv === "number";
+                var aIsNum = typeof av === "number";
+                if (!bIsNum && !aIsNum) return;
+
+                var bVal = bIsNum ? bv : 0;
+                var aVal = aIsNum ? av : 0;
+                dialCount++;
+
+                var improved = isImproved(d.dir, bVal, aVal);
+                var unchanged = Math.abs(bVal - aVal) < 0.01;
+                var diff = Math.round((aVal - bVal) * 100) / 100;
+                var diffStr = diff > 0 ? "+" + diff : diff < 0 ? String(diff) : "0";
+
+                var cfg = getDialConfig(d.path, d.dir, bVal, aVal, d.scale);
+                var delta = unchanged ? null : { from: bVal, to: aVal, improved: improved };
+
+                var needles = [];
+                if (bIsNum) needles.push({ val: bVal, color: BEFORE_COLOR, glow: true });
+                if (aIsNum) needles.push({ val: aVal, color: AFTER_COLOR, glow: true });
+
+                var svg = buildGlassDial(cfg, needles, null, delta);
+
+                var verdictClass = unchanged ? "dial-verdict-unchanged"
+                    : improved ? "dial-verdict-improved" : "dial-verdict-worsened";
+                var verdictText = unchanged ? "Unchanged"
+                    : improved ? "Improved" : "Worsened";
+
+                var bStr = bIsNum ? (bVal % 1 === 0 ? String(Math.round(bVal)) : bVal.toFixed(1)) : "-";
+                var aStr = aIsNum ? (aVal % 1 === 0 ? String(Math.round(aVal)) : aVal.toFixed(1)) : "-";
+
+                dialsHtml += '<div class="comp-dial-card glass-card">' +
+                    '<div class="dial-title">' + esc(d.label) + "</div>" +
+                    svg +
+                    '<div class="dial-footer">' +
+                        '<span class="dial-val dial-val-before">Before: ' + esc(bStr) + "</span>" +
+                        '<span class="dial-verdict ' + verdictClass + '">' + esc(verdictText) + " (" + esc(diffStr) + ")</span>" +
+                        '<span class="dial-val dial-val-after">After: ' + esc(aStr) + "</span>" +
+                    "</div>" +
+                "</div>";
+            });
+
+            var multiClass = dialCount > 2 ? " comp-dial-grid-sm" : "";
+
+            panel.innerHTML =
+                '<div class="comp-cond-info glass-card">' +
+                    '<div class="cg-cell-inner">' +
+                    '<h3 class="cg-name">' + esc(tab.name) + "</h3>" +
+                    '<div class="cg-desc">' + tab.desc.replace(/\n/g, "<br>") + "</div>" +
+                    "</div>" +
+                "</div>" +
+                '<div class="comp-cond-images">' +
+                    '<div class="comp-img-col glass-card">' +
+                        '<div class="comp-side-head">' +
+                            '<span class="comp-side-dot comp-dot-before"></span>' +
+                            '<span class="comp-side-label comp-label-before">Before</span>' +
+                        '</div>' +
+                        '<img class="comp-side-img" src="' + bThumb + '" alt="Before">' +
+                    '</div>' +
+                    '<div class="comp-img-col glass-card">' +
+                        '<div class="comp-side-head">' +
+                            '<span class="comp-side-dot comp-dot-after"></span>' +
+                            '<span class="comp-side-label comp-label-after">After</span>' +
+                        '</div>' +
+                        '<img class="comp-side-img" src="' + aThumb + '" alt="After">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="comp-dial-grid' + multiClass + '">' + dialsHtml + '</div>';
+
+            panels.appendChild(panel);
+        });
+
+        tabBar.querySelectorAll(".condition-tab").forEach(function (btn) {
+            btn.onclick = function () {
+                tabBar.querySelectorAll(".condition-tab").forEach(function (b) { b.classList.remove("active"); });
+                panels.querySelectorAll(".comp-panel").forEach(function (p) { p.classList.remove("active"); });
+                btn.classList.add("active");
+                var target = document.getElementById(btn.dataset.cpanel);
+                if (target) target.classList.add("active");
+            };
+        });
+    }
+
     // ── SVG Overlay Highlighting ──
     const REGION_COLORS = {
         face:        { fill: "rgba(0,229,255,0.25)", stroke: "#00e5ff" },
@@ -762,13 +898,19 @@
         compareResults.style.display = "none";
 
         try {
-            const res = await fetch("/compare/" + encodeURIComponent(selectedBefore) + "/" + encodeURIComponent(selectedAfter));
-            if (!res.ok) {
-                const d = await res.json().catch(() => ({}));
+            const [compRes, bDataRes, aDataRes] = await Promise.all([
+                fetch("/compare/" + encodeURIComponent(selectedBefore) + "/" + encodeURIComponent(selectedAfter)),
+                fetch("/history/" + encodeURIComponent(selectedBefore) + "/data"),
+                fetch("/history/" + encodeURIComponent(selectedAfter) + "/data")
+            ]);
+            if (!compRes.ok) {
+                const d = await compRes.json().catch(() => ({}));
                 throw new Error(d.detail || "Comparison failed");
             }
-            const data = await res.json();
-            renderComparison(data);
+            const data = await compRes.json();
+            const bFullData = bDataRes.ok ? await bDataRes.json() : null;
+            const aFullData = aDataRes.ok ? await aDataRes.json() : null;
+            renderComparison(data, bFullData, aFullData);
         } catch (err) {
             compareError.textContent = err instanceof Error ? err.message : String(err);
             compareError.style.display = "block";
@@ -778,7 +920,7 @@
         }
     };
 
-    function renderComparison(data) {
+    function renderComparison(data, bFullData, aFullData) {
         const bDate = data.before.timestamp ? new Date(data.before.timestamp).toLocaleDateString("en-US", {
             year: "numeric", month: "short", day: "numeric"
         }) : data.before.id;
@@ -847,6 +989,9 @@
 
         compareCharts.innerHTML = html;
         compareResults.style.display = "block";
+
+        buildCompareConditionTabs(data, bFullData, aFullData);
+
         compareResults.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
@@ -944,7 +1089,7 @@
         return [c[0], Math.min(c[1] + 10, 100), Math.min(c[2] + bump, 95)];
     }
 
-    function buildGlassDial(cfg, needles, centerLabel) {
+    function buildGlassDial(cfg, needles, centerLabel, deltaArc) {
         var uid = "gd" + (++DIAL_UID);
         var W = 240, H = 155;
         var cx = 120, cy = 130;
@@ -973,6 +1118,20 @@
         s += '<stop offset="0%" stop-color="rgba(220,240,255,0.95)"/>';
         s += '<stop offset="100%" stop-color="rgba(100,160,220,0.8)"/>';
         s += "</radialGradient>";
+        if (deltaArc && typeof deltaArc.from === "number" && typeof deltaArc.to === "number") {
+            var daGid = uid + "da";
+            var daH = deltaArc.improved ? 140 : 0;
+            var daS = deltaArc.improved ? 60 : 60;
+            var daL = deltaArc.improved ? 48 : 50;
+            s += '<radialGradient id="' + daGid + '" cx="50%" cy="100%" r="100%">';
+            s += '<stop offset="0%" stop-color="hsla(' + daH + ',' + daS + '%,' + daL + '%,0.2)"/>';
+            s += '<stop offset="40%" stop-color="hsla(' + daH + ',' + daS + '%,' + daL + '%,0.4)"/>';
+            s += '<stop offset="100%" stop-color="hsla(' + daH + ',' + daS + '%,' + (daL + 5) + '%,0.55)"/>';
+            s += "</radialGradient>";
+            var daGlowId = uid + "dag";
+            s += '<filter id="' + daGlowId + '"><feGaussianBlur stdDeviation="2.5" result="b"/>';
+            s += '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+        }
         s += "</defs>";
 
         cfg.zones.forEach(function (z, i) {
@@ -1026,6 +1185,53 @@
                 dv + "</text>";
         }
 
+        if (deltaArc && typeof deltaArc.from === "number" && typeof deltaArc.to === "number") {
+            var range = cfg.max - cfg.min;
+            var fromClamped = Math.min(Math.max(deltaArc.from, cfg.min), cfg.max);
+            var toClamped = Math.min(Math.max(deltaArc.to, cfg.min), cfg.max);
+            var fromRatio = (fromClamped - cfg.min) / range;
+            var toRatio = (toClamped - cfg.min) / range;
+
+            if (Math.abs(fromRatio - toRatio) > 0.003) {
+                var fromA = PI - fromRatio * PI;
+                var toA = PI - toRatio * PI;
+                var startA = Math.max(fromA, toA);
+                var endA = Math.min(fromA, toA);
+
+                var hubR = 12;
+                var outerArcR = R + 1;
+
+                var ax1o = cx + outerArcR * Math.cos(startA), ay1o = cy - outerArcR * Math.sin(startA);
+                var ax2o = cx + outerArcR * Math.cos(endA),   ay2o = cy - outerArcR * Math.sin(endA);
+                var ax1i = cx + hubR * Math.cos(endA),         ay1i = cy - hubR * Math.sin(endA);
+                var ax2i = cx + hubR * Math.cos(startA),       ay2i = cy - hubR * Math.sin(startA);
+                var arcSpan = (startA - endA) / PI;
+                var arcLarge = arcSpan > 0.5 ? 1 : 0;
+
+                var sectorPath = "M " + ax1o.toFixed(1) + " " + ay1o.toFixed(1) +
+                    " A " + outerArcR + " " + outerArcR + " 0 " + arcLarge + " 1 " + ax2o.toFixed(1) + " " + ay2o.toFixed(1) +
+                    " L " + ax1i.toFixed(1) + " " + ay1i.toFixed(1) +
+                    " A " + hubR + " " + hubR + " 0 " + arcLarge + " 0 " + ax2i.toFixed(1) + " " + ay2i.toFixed(1) + " Z";
+
+                var daGid = uid + "da";
+                var daGlowId = uid + "dag";
+                s += '<path d="' + sectorPath + '" fill="url(#' + daGid + ')" filter="url(#' + daGlowId + ')"/>';
+
+                var edgeColor = deltaArc.improved
+                    ? "hsla(140,65%,45%,0.7)"
+                    : "hsla(0,65%,50%,0.7)";
+                s += '<path d="M ' + ax1o.toFixed(1) + " " + ay1o.toFixed(1) +
+                    " A " + outerArcR + " " + outerArcR + " 0 " + arcLarge + " 1 " + ax2o.toFixed(1) + " " + ay2o.toFixed(1) +
+                    '" fill="none" stroke="' + edgeColor + '" stroke-width="2" stroke-linecap="round"/>';
+                s += '<line x1="' + ax1o.toFixed(1) + '" y1="' + ay1o.toFixed(1) +
+                    '" x2="' + ax2i.toFixed(1) + '" y2="' + ay2i.toFixed(1) +
+                    '" stroke="' + edgeColor + '" stroke-width="1.2" opacity="0.5"/>';
+                s += '<line x1="' + ax2o.toFixed(1) + '" y1="' + ay2o.toFixed(1) +
+                    '" x2="' + ax1i.toFixed(1) + '" y2="' + ay1i.toFixed(1) +
+                    '" stroke="' + edgeColor + '" stroke-width="1.2" opacity="0.5"/>';
+            }
+        }
+
         needles.forEach(function (n) {
             s += drawGlassNeedle(cx, cy, R, cfg, n.val, n.color, n.glow);
         });
@@ -1075,7 +1281,7 @@
         return s;
     }
 
-    // Build a comparison dial card (two needles)
+    // Build a comparison dial card (two needles + delta arc)
     function buildDialRow(r, bNum, aNum) {
         var b = bNum !== null ? bNum : 0;
         var a = aNum !== null ? aNum : 0;
@@ -1085,10 +1291,13 @@
         var verdictText = r.verdict.charAt(0).toUpperCase() + r.verdict.slice(1);
 
         var cfg = getDialConfig(r.key || "", r.direction || "neutral", b, a);
+        var unchanged = Math.abs(b - a) < 0.01;
+        var improved = isImproved(r.direction || "neutral", b, a);
+        var delta = unchanged ? null : { from: b, to: a, improved: improved };
         var svg = buildGlassDial(cfg, [
-            { val: b, color: "rgba(74,144,217,0.9)", glow: true },
-            { val: a, color: "rgba(168,85,247,0.9)", glow: true }
-        ], null);
+            { val: b, color: BEFORE_COLOR, glow: true },
+            { val: a, color: AFTER_COLOR, glow: true }
+        ], null, delta);
 
         return (
             '<div class="dial-card glass-card">' +

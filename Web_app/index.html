@@ -133,16 +133,21 @@
         <section id="compare-results" class="results" style="display:none;">
             <h2>Comparison Results</h2>
             <div class="compare-header" id="compare-header"></div>
-            <div class="dial-legend">
-                <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:rgba(74,144,217,0.9); box-shadow:0 0 8px rgba(74,144,217,0.5);"></span>Before</span>
-                <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:rgba(168,85,247,0.9); box-shadow:0 0 8px rgba(168,85,247,0.5);"></span>After</span>
-                <span class="dial-legend-sep">|</span>
-                <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(150,65%,42%); box-shadow:0 0 6px hsl(150,65%,42%);"></span>None / Good</span>
-                <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(80,70%,50%); box-shadow:0 0 6px hsl(80,70%,50%);"></span>Mild</span>
-                <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(30,90%,55%); box-shadow:0 0 6px hsl(30,90%,55%);"></span>Moderate</span>
-                <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(350,65%,55%); box-shadow:0 0 6px hsl(350,65%,55%);"></span>Severe / Bad</span>
+            <div class="comp-tab-bar" id="comp-tab-bar"></div>
+            <div id="comp-panels">
+                <div class="comp-panel active" id="comp-panel-overview">
+                    <div class="dial-legend">
+                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:rgba(45,142,224,0.9); box-shadow:0 0 8px rgba(45,142,224,0.5);"></span>Before</span>
+                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:rgba(168,85,247,0.9); box-shadow:0 0 8px rgba(168,85,247,0.5);"></span>After</span>
+                        <span class="dial-legend-sep">|</span>
+                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(150,65%,42%); box-shadow:0 0 6px hsl(150,65%,42%);"></span>None / Good</span>
+                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(80,70%,50%); box-shadow:0 0 6px hsl(80,70%,50%);"></span>Mild</span>
+                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(30,90%,55%); box-shadow:0 0 6px hsl(30,90%,55%);"></span>Moderate</span>
+                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(350,65%,55%); box-shadow:0 0 6px hsl(350,65%,55%);"></span>Severe / Bad</span>
+                    </div>
+                    <div id="compare-charts"></div>
+                </div>
             </div>
-            <div id="compare-charts"></div>
         </section>
     </main>
 
