@@ -339,6 +339,131 @@
     }
 
     // ══════════════════════════════════════════════════
+    //  ENHANCED RECTANGLE HELPERS
+    // ══════════════════════════════════════════════════
+
+    var RECT_PAD = 10;
+    var RECT_STROKE_W = 3.5;
+    var BRACKET_W = 5;
+    var BRACKET_LEN_RATIO = 0.28;
+    var BRACKET_MAX = 18;
+
+    function buildEnhancedRectSvg(rects, color, iw, ih, filterId) {
+        if (!rects.length) return { defs: "", body: "" };
+
+        var defs = '<filter id="' + filterId + '">' +
+            '<feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>' +
+            '<feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.7 0" result="glow"/>' +
+            '<feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+            '</filter>';
+
+        var body = "";
+
+        rects.forEach(function (r, i) {
+            var x = Math.max(0, r.left - RECT_PAD);
+            var y = Math.max(0, r.top - RECT_PAD);
+            var w = r.width + RECT_PAD * 2;
+            var h = r.height + RECT_PAD * 2;
+            if (iw > 0 && x + w > iw) w = iw - x;
+            if (ih > 0 && y + h > ih) h = ih - y;
+
+            var fillOpacity = color.fill.replace(/[\d.]+\)$/, "0.22)");
+
+            body += '<rect x="' + x + '" y="' + y +
+                '" width="' + w + '" height="' + h +
+                '" fill="' + fillOpacity + '" stroke="' + color.stroke +
+                '" stroke-width="' + RECT_STROKE_W + '" rx="6" class="region-rect" filter="url(#' + filterId + ')"/>';
+
+            var bLen = Math.min(w * BRACKET_LEN_RATIO, h * BRACKET_LEN_RATIO, BRACKET_MAX);
+            var bc = color.stroke;
+
+            body += '<path d="M' + (x + bLen) + ',' + y + ' L' + x + ',' + y + ' L' + x + ',' + (y + bLen) +
+                '" fill="none" stroke="' + bc + '" stroke-width="' + BRACKET_W + '" stroke-linecap="round"/>';
+            body += '<path d="M' + (x + w - bLen) + ',' + y + ' L' + (x + w) + ',' + y + ' L' + (x + w) + ',' + (y + bLen) +
+                '" fill="none" stroke="' + bc + '" stroke-width="' + BRACKET_W + '" stroke-linecap="round"/>';
+            body += '<path d="M' + x + ',' + (y + h - bLen) + ' L' + x + ',' + (y + h) + ' L' + (x + bLen) + ',' + (y + h) +
+                '" fill="none" stroke="' + bc + '" stroke-width="' + BRACKET_W + '" stroke-linecap="round"/>';
+            body += '<path d="M' + (x + w) + ',' + (y + h - bLen) + ' L' + (x + w) + ',' + (y + h) + ' L' + (x + w - bLen) + ',' + (y + h) +
+                '" fill="none" stroke="' + bc + '" stroke-width="' + BRACKET_W + '" stroke-linecap="round"/>';
+        });
+
+        return { defs: defs, body: body };
+    }
+
+    function buildEnhancedRectDom(overlaySvg, rects, color, filterId) {
+        if (!rects.length) return;
+
+        var ns = "http://www.w3.org/2000/svg";
+        var defs = overlaySvg.querySelector("defs") || document.createElementNS(ns, "defs");
+        if (!defs.parentNode) overlaySvg.appendChild(defs);
+
+        var filter = document.createElementNS(ns, "filter");
+        filter.setAttribute("id", filterId);
+        var blur = document.createElementNS(ns, "feGaussianBlur");
+        blur.setAttribute("in", "SourceGraphic");
+        blur.setAttribute("stdDeviation", "5");
+        blur.setAttribute("result", "blur");
+        filter.appendChild(blur);
+        var cm = document.createElementNS(ns, "feColorMatrix");
+        cm.setAttribute("in", "blur");
+        cm.setAttribute("type", "matrix");
+        cm.setAttribute("values", "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.7 0");
+        cm.setAttribute("result", "glow");
+        filter.appendChild(cm);
+        var merge = document.createElementNS(ns, "feMerge");
+        var mn1 = document.createElementNS(ns, "feMergeNode");
+        mn1.setAttribute("in", "glow");
+        merge.appendChild(mn1);
+        var mn2 = document.createElementNS(ns, "feMergeNode");
+        mn2.setAttribute("in", "SourceGraphic");
+        merge.appendChild(mn2);
+        filter.appendChild(merge);
+        defs.appendChild(filter);
+
+        var iw = parseInt(overlaySvg.getAttribute("viewBox").split(" ")[2]) || 0;
+        var ih = parseInt(overlaySvg.getAttribute("viewBox").split(" ")[3]) || 0;
+
+        rects.forEach(function (r) {
+            var x = Math.max(0, r.left - RECT_PAD);
+            var y = Math.max(0, r.top - RECT_PAD);
+            var w = r.width + RECT_PAD * 2;
+            var h = r.height + RECT_PAD * 2;
+            if (iw > 0 && x + w > iw) w = iw - x;
+            if (ih > 0 && y + h > ih) h = ih - y;
+
+            var fillOpacity = color.fill.replace(/[\d.]+\)$/, "0.22)");
+
+            var rect = document.createElementNS(ns, "rect");
+            rect.setAttribute("x", x);
+            rect.setAttribute("y", y);
+            rect.setAttribute("width", w);
+            rect.setAttribute("height", h);
+            rect.setAttribute("fill", fillOpacity);
+            rect.setAttribute("stroke", color.stroke);
+            rect.setAttribute("stroke-width", RECT_STROKE_W);
+            rect.setAttribute("rx", "6");
+            rect.setAttribute("class", "region-rect");
+            rect.setAttribute("filter", "url(#" + filterId + ")");
+            overlaySvg.appendChild(rect);
+
+            var bLen = Math.min(w * BRACKET_LEN_RATIO, h * BRACKET_LEN_RATIO, BRACKET_MAX);
+            function mkPath(d) {
+                var p = document.createElementNS(ns, "path");
+                p.setAttribute("d", d);
+                p.setAttribute("fill", "none");
+                p.setAttribute("stroke", color.stroke);
+                p.setAttribute("stroke-width", BRACKET_W);
+                p.setAttribute("stroke-linecap", "round");
+                overlaySvg.appendChild(p);
+            }
+            mkPath("M" + (x + bLen) + "," + y + " L" + x + "," + y + " L" + x + "," + (y + bLen));
+            mkPath("M" + (x + w - bLen) + "," + y + " L" + (x + w) + "," + y + " L" + (x + w) + "," + (y + bLen));
+            mkPath("M" + x + "," + (y + h - bLen) + " L" + x + "," + (y + h) + " L" + (x + bLen) + "," + (y + h));
+            mkPath("M" + (x + w) + "," + (y + h - bLen) + " L" + (x + w) + "," + (y + h) + " L" + (x + w - bLen) + "," + (y + h));
+        });
+    }
+
+    // ══════════════════════════════════════════════════
     //  CONDITION TABS (multi-dial, corrected API paths)
     // ══════════════════════════════════════════════════
 
@@ -520,13 +645,8 @@
                 if (regions[rk]) rects = rects.concat(regions[rk]);
             });
 
-            var svgContent = "";
-            rects.forEach(function (r) {
-                svgContent += '<rect x="' + r.left + '" y="' + r.top +
-                    '" width="' + r.width + '" height="' + r.height +
-                    '" fill="' + tab.color.fill + '" stroke="' + tab.color.stroke +
-                    '" stroke-width="2.5" rx="4"/>';
-            });
+            var fid = "rglow-" + tab.id;
+            var enhanced = buildEnhancedRectSvg(rects, tab.color, iw, ih, fid);
 
             var dialsHtml = "";
             var dialCount = 0;
@@ -546,8 +666,8 @@
                 ? '<div class="cg-badge">' + rects.length + " region" + (rects.length > 1 ? "s" : "") + " detected</div>"
                 : '<div class="cg-badge cg-badge-clear">No affected regions detected</div>';
 
-            var overlayHtml = (iw > 0 && ih > 0)
-                ? '<svg class="cg-overlay" viewBox="0 0 ' + iw + " " + ih + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">' + svgContent + "</svg>"
+            var overlayHtml = (iw > 0 && ih > 0 && rects.length > 0)
+                ? '<svg class="cg-overlay" viewBox="0 0 ' + iw + " " + ih + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><defs>' + enhanced.defs + '</defs>' + enhanced.body + "</svg>"
                 : "";
 
             var noRegionMsg = rects.length === 0
@@ -633,6 +753,12 @@
 
         var bMetrics = (bFull && bFull.metrics) || {};
         var aMetrics = (aFull && aFull.metrics) || {};
+        var bRegions = (bFull && bFull.regions) || {};
+        var aRegions = (aFull && aFull.regions) || {};
+        var bIw = (bFull && bFull.image_width) || 0;
+        var bIh = (bFull && bFull.image_height) || 0;
+        var aIw = (aFull && aFull.image_width) || 0;
+        var aIh = (aFull && aFull.image_height) || 0;
         var bId = compData.before.id;
         var aId = compData.after.id;
         var bThumb = "/history/" + encodeURIComponent(bId) + "/thumb";
@@ -708,6 +834,32 @@
 
             var multiClass = dialCount > 2 ? " comp-dial-grid-sm" : "";
 
+            var bRects = [];
+            var aRects = [];
+            tab.regions.forEach(function (rk) {
+                if (bRegions[rk]) bRects = bRects.concat(bRegions[rk]);
+                if (aRegions[rk]) aRects = aRects.concat(aRegions[rk]);
+            });
+
+            var bFiltId = "cg-b-" + tab.id;
+            var aFiltId = "cg-a-" + tab.id;
+            var bEnhanced = buildEnhancedRectSvg(bRects, tab.color, bIw, bIh, bFiltId);
+            var aEnhanced = buildEnhancedRectSvg(aRects, tab.color, aIw, aIh, aFiltId);
+
+            var bOverlay = (bIw > 0 && bIh > 0 && bRects.length > 0)
+                ? '<svg class="cg-overlay" viewBox="0 0 ' + bIw + ' ' + bIh + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><defs>' + bEnhanced.defs + '</defs>' + bEnhanced.body + '</svg>'
+                : '';
+            var aOverlay = (aIw > 0 && aIh > 0 && aRects.length > 0)
+                ? '<svg class="cg-overlay" viewBox="0 0 ' + aIw + ' ' + aIh + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><defs>' + aEnhanced.defs + '</defs>' + aEnhanced.body + '</svg>'
+                : '';
+
+            var bBadge = bRects.length > 0
+                ? '<div class="cg-badge">' + bRects.length + ' region' + (bRects.length > 1 ? 's' : '') + '</div>'
+                : '';
+            var aBadge = aRects.length > 0
+                ? '<div class="cg-badge">' + aRects.length + ' region' + (aRects.length > 1 ? 's' : '') + '</div>'
+                : '';
+
             panel.innerHTML =
                 '<div class="comp-cond-info glass-card">' +
                     '<div class="cg-cell-inner">' +
@@ -721,14 +873,22 @@
                             '<span class="comp-side-dot comp-dot-before"></span>' +
                             '<span class="comp-side-label comp-label-before">Before</span>' +
                         '</div>' +
-                        '<img class="comp-side-img" src="' + bThumb + '" alt="Before">' +
+                        '<div class="cg-img-wrap">' +
+                            '<img class="comp-side-img" src="' + bThumb + '" alt="Before">' +
+                            bOverlay +
+                        '</div>' +
+                        bBadge +
                     '</div>' +
                     '<div class="comp-img-col glass-card">' +
                         '<div class="comp-side-head">' +
                             '<span class="comp-side-dot comp-dot-after"></span>' +
                             '<span class="comp-side-label comp-label-after">After</span>' +
                         '</div>' +
-                        '<img class="comp-side-img" src="' + aThumb + '" alt="After">' +
+                        '<div class="cg-img-wrap">' +
+                            '<img class="comp-side-img" src="' + aThumb + '" alt="After">' +
+                            aOverlay +
+                        '</div>' +
+                        aBadge +
                     '</div>' +
                 '</div>' +
                 '<div class="comp-dial-grid' + multiClass + '">' + dialsHtml + '</div>';
@@ -767,18 +927,7 @@
         if (!rects.length) return;
 
         const colors = REGION_COLORS[regionKey] || REGION_COLORS.face;
-        for (const r of rects) {
-            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            rect.setAttribute("x", r.left);
-            rect.setAttribute("y", r.top);
-            rect.setAttribute("width", r.width);
-            rect.setAttribute("height", r.height);
-            rect.setAttribute("fill", colors.fill);
-            rect.setAttribute("stroke", colors.stroke);
-            rect.setAttribute("stroke-width", "2");
-            rect.setAttribute("rx", "3");
-            overlaySvg.appendChild(rect);
-        }
+        buildEnhancedRectDom(overlaySvg, rects, colors, "hl-glow-" + regionKey);
     }
 
     function clearHighlight() {

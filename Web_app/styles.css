@@ -1054,6 +1054,15 @@ main {
     border-radius: 14px;
 }
 
+@keyframes regionPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+.region-rect {
+    animation: regionPulse 2.4s ease-in-out infinite;
+}
+
 .cg-no-regions {
     text-align: center;
     font-size: 0.78rem;
@@ -1214,12 +1223,18 @@ main {
 
 .comp-side-img {
     width: 100%;
-    max-width: 280px;
     display: block;
     border-radius: 14px;
+}
+
+.comp-img-col .cg-img-wrap {
+    max-width: 320px;
+    margin: 0 auto;
     box-shadow: 0 4px 16px rgba(0, 60, 120, 0.08);
-    position: relative;
-    z-index: 1;
+}
+
+.comp-img-col .cg-badge {
+    margin-top: 8px;
 }
 
 /* --- Comparison Combined Dial Grid --- */
