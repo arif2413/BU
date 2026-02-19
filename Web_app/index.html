@@ -67,21 +67,26 @@
 
         <section id="results" class="results" style="display:none;">
             <h2>Analysis Results</h2>
-            <div id="analysis-dials" style="display:none; margin-bottom: 28px;"></div>
-            <p class="subtitle results-hint">Click a highlighted metric to show the detected region on the image</p>
-            <div class="results-flex">
-                <div class="result-img-wrap" id="img-wrap">
-                    <img id="result-img" class="result-img" alt="Annotated result">
-                    <svg id="result-overlay" class="result-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div class="condition-tab-bar" id="condition-tab-bar"></div>
+            <div id="condition-panels">
+                <div class="condition-panel active" id="cpanel-overview">
+                    <div id="analysis-dials" style="margin-bottom: 28px;"></div>
+                    <p class="subtitle results-hint">Click a highlighted metric to show the detected region on the image</p>
+                    <div class="results-flex">
+                        <div class="result-img-wrap" id="img-wrap">
+                            <img id="result-img" class="result-img" alt="Annotated result">
+                            <svg id="result-overlay" class="result-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+                        </div>
+                        <div class="metrics-panel" id="metrics"></div>
+                    </div>
+                    <div class="legend">
+                        <span class="legend-item"><span class="legend-dot" style="background:#00e5ff;"></span>Face</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#ab47bc;"></span>Dark Circles</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#8d6e63;"></span>Brown Spots</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#ffee58;"></span>Comedones</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#ef5350;"></span>Acne</span>
+                    </div>
                 </div>
-                <div class="metrics-panel" id="metrics"></div>
-            </div>
-            <div class="legend">
-                <span class="legend-item"><span class="legend-dot" style="background:#00e5ff;"></span>Face</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#ab47bc;"></span>Dark Circles</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#8d6e63;"></span>Brown Spots</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#ffee58;"></span>Comedones</span>
-                <span class="legend-item"><span class="legend-dot" style="background:#ef5350;"></span>Acne</span>
             </div>
             <details class="raw-details">
                 <summary>Raw JSON Response</summary>

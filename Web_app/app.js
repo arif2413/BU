@@ -54,6 +54,15 @@
     let regionsData = {};
     let imgW = 0;
     let imgH = 0;
+    let originalImgSrc = "";
+
+    function fileToDataUrl(file) {
+        return new Promise(function (resolve) {
+            var reader = new FileReader();
+            reader.onload = function (e) { resolve(e.target.result); };
+            reader.readAsDataURL(file);
+        });
+    }
 
     // ── Tabs ──
     function switchTab(tab) {
@@ -178,6 +187,8 @@
         errorDiv.style.display = "none";
         resultsDiv.style.display = "none";
 
+        originalImgSrc = await fileToDataUrl(selectedFile);
+
         const formData = new FormData();
         formData.append("image", selectedFile, selectedFile.name || "image.jpg");
 
@@ -278,9 +289,10 @@
                 });
                 dHtml += "</div>";
                 dialsContainer.innerHTML = dHtml;
-                dialsContainer.style.display = "block";
             }
         }
+
+        buildConditionTabs(data);
 
         resultsDiv.style.display = "block";
         resultsDiv.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -324,6 +336,279 @@
             }
         });
         return items;
+    }
+
+    // ══════════════════════════════════════════════════
+    //  CONDITION TABS (multi-dial, corrected API paths)
+    // ══════════════════════════════════════════════════
+
+    var CONDITION_TABS = [
+        { id: "acne", name: "Acne",
+          desc: "Acne is caused by clogged hair follicles with oil and dead cells. Deduction per lesion: comedone \u22121.7, papule \u22122.4, pustule \u22124.8, nodule \u22129.8 points. Ratings: 90\u2013100 None, 70\u201389 Mild, 50\u201369 Moderate, 30\u201349 Severe.",
+          regions: ["acne", "acne_mark"],
+          dials: [{ path: "result.score_info.acne_score", label: "Acne Score", dir: "higher_is_better", scale: "score" }],
+          color: { fill: "rgba(239,83,80,0.35)", stroke: "#ef5350" } },
+
+        { id: "wrinkles", name: "Wrinkles",
+          desc: "Wrinkles form from repeated facial expressions and loss of elasticity. Covers forehead lines, crow\u2019s feet, nasolabial folds, glabellar frown lines, and under-eye fine lines. Ratings: 90\u2013100 None, 70\u201389 Mild, 50\u201369 Moderate, 30\u201349 Severe.",
+          regions: [],
+          dials: [{ path: "result.score_info.wrinkle_score", label: "Wrinkle Score", dir: "higher_is_better", scale: "score" }],
+          color: { fill: "rgba(100,181,246,0.35)", stroke: "#64b5f6" } },
+
+        { id: "pores", name: "Pores",
+          desc: "Enlarged pores from excess oil, reduced elasticity, and clogged follicles. Measured across forehead, left cheek, right cheek, and jaw. Total is the average of all four sub-scores. Ratings: 90\u2013100 None, 70\u201389 Mild, 50\u201369 Moderate, 30\u201349 Severe.",
+          regions: [],
+          dials: [
+              { path: "result.score_info.pores_score", label: "Overall Pores", dir: "higher_is_better", scale: "score" },
+              { path: "result.score_info.pores_type_score.pores_forehead_score", label: "Forehead", dir: "higher_is_better", scale: "score" },
+              { path: "result.score_info.pores_type_score.pores_leftcheek_score", label: "Left Cheek", dir: "higher_is_better", scale: "score" },
+              { path: "result.score_info.pores_type_score.pores_rightcheek_score", label: "Right Cheek", dir: "higher_is_better", scale: "score" },
+              { path: "result.score_info.pores_type_score.pores_jaw_score", label: "Jaw", dir: "higher_is_better", scale: "score" }
+          ],
+          color: { fill: "rgba(129,199,132,0.35)", stroke: "#81c784" } },
+
+        { id: "blackheads", name: "Blackheads",
+          desc: "Blackheads (open comedones) form when pores clog with sebum and oxidize. Each blackhead deducts ~0.3 points. Count 0\u201330: None, 31\u2013100: Mild, 101\u2013160: Moderate, 161+: Severe.",
+          regions: ["blackhead"],
+          dials: [{ path: "result.score_info.blackhead_score", label: "Blackhead Score", dir: "higher_is_better", scale: "score" }],
+          color: { fill: "rgba(255,238,88,0.35)", stroke: "#ffee58" } },
+
+        { id: "dark_circles", name: "Dark Circles",
+          desc: "Dark circles can be pigmented, vascular, or structural. Severity deduction by type \u2014 Pigmented: 0/7/11/16, Vascular: 0/9/15/20, Structural: 0/11/19/28. Left and right eyes scored individually then combined. Ratings: 90\u2013100 None, 70\u201389 Mild, 50\u201369 Moderate, 30\u201349 Severe.",
+          regions: ["dark_circle"],
+          dials: [
+              { path: "result.score_info.dark_circle_score", label: "Overall Score", dir: "higher_is_better", scale: "score" },
+              { path: "result.score_info.dark_circle_type_score.left_dark_circle_score", label: "Left Eye Score", dir: "higher_is_better", scale: "score" },
+              { path: "result.score_info.dark_circle_type_score.right_dark_circle_score", label: "Right Eye Score", dir: "higher_is_better", scale: "score" },
+              { path: "result.dark_circle_severity.value", label: "Overall Severity", dir: "lower_is_better", scale: "severity" },
+              { path: "result.left_dark_circle_pigment.value", label: "Pigment (L)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.right_dark_circle_pigment.value", label: "Pigment (R)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.left_dark_circle_rete.value", label: "Vascular (L)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.right_dark_circle_rete.value", label: "Vascular (R)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.left_dark_circle_structural.value", label: "Structural (L)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.right_dark_circle_structural.value", label: "Structural (R)", dir: "lower_is_better", scale: "severity" }
+          ],
+          color: { fill: "rgba(171,71,188,0.35)", stroke: "#ab47bc" } },
+
+        { id: "brown_spots", name: "Brown Spots",
+          desc: "Sun spots, age spots, and melasma from excess melanin. Concentration 0\u20130.09%: None, 0.10\u20130.30%: Mild, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
+          regions: ["brown_spot"],
+          dials: [{ path: "result.score_info.brown_spot_score", label: "Brown Spot Score", dir: "higher_is_better", scale: "score" }],
+          color: { fill: "rgba(141,110,99,0.35)", stroke: "#8d6e63" } },
+
+        { id: "sensitivity", name: "Sensitivity",
+          desc: "Skin sensitivity indicates reactivity to environmental factors. Measured by affected area and redness. Area 0\u20130.09%: None, 0.10\u20130.30%: Mild, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
+          regions: ["red_spot"],
+          dials: [
+              { path: "result.score_info.sensitivity_score", label: "Sensitivity Score", dir: "higher_is_better", scale: "score" },
+              { path: "result.score_info.red_spot_score", label: "Red Spot Score", dir: "higher_is_better", scale: "score" }
+          ],
+          color: { fill: "rgba(244,143,177,0.35)", stroke: "#f48fb1" } },
+
+        { id: "eye_bags", name: "Eye Bags",
+          desc: "Puffiness from weakened tissue structures around eyelids. Fat shifts into lower lids. Severity: 0 = None, 1 = Mild, 2 = Moderate, 3 = Severe.",
+          regions: [],
+          dials: [{ path: "result.eye_pouch_severity.value", label: "Eye Bag Severity", dir: "lower_is_better", scale: "severity" }],
+          color: { fill: "rgba(149,117,205,0.35)", stroke: "#9575cd" } },
+
+        { id: "skin_quality", name: "Skin Quality",
+          desc: "Skin quality score reflects skin type balance. Formula: 100 \u2212 (water_score + oily_intensity_score) / 2. Lower = healthier. 1\u201315: Neutral (best), 16\u201340: Dry, 41\u201360: Combination, 61\u2013100: Oily.",
+          regions: [],
+          dials: [{ path: "result.score_info.skin_type_score", label: "Skin Quality", dir: "lower_is_better", scale: "skin_type" }],
+          color: { fill: "rgba(100,200,200,0.35)", stroke: "#64c8c8" } },
+
+        { id: "melanin", name: "Melanin / Pigmentation",
+          desc: "Melanin concentration reflects pigmentation levels. Formula: 100 \u2212 melanin_concentration. Brown area 0\u20130.09%: None, 0.10\u20130.30%: Mild, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
+          regions: ["brown_spot"],
+          dials: [
+              { path: "result.score_info.melanin_score", label: "Melanin Score", dir: "higher_is_better", scale: "score" },
+              { path: "result.score_info.brown_spot_score", label: "Brown Spot Score", dir: "higher_is_better", scale: "score" }
+          ],
+          color: { fill: "rgba(161,136,127,0.35)", stroke: "#a1887f" } },
+
+        { id: "roughness", name: "Roughness",
+          desc: "Skin roughness reflects surface smoothness. Formula: 100 \u2212 rough_severity. Rough area 0\u20130.06%: Smooth, 0.07\u20130.20%: Mild, 0.21\u20130.50%: Moderate, 0.51%+: Severe.",
+          regions: [],
+          dials: [{ path: "result.score_info.rough_score", label: "Roughness Score", dir: "higher_is_better", scale: "score" }],
+          color: { fill: "rgba(77,208,225,0.35)", stroke: "#4dd0e1" } },
+
+        { id: "moisture", name: "Moisture",
+          desc: "Skin moisture indicates hydration levels. Formula: 100 \u2212 water_severity. Water area 0\u20130.09%: Hydrated, 0.10\u20130.30%: Mild Dehydration, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
+          regions: [],
+          dials: [{ path: "result.score_info.water_score", label: "Moisture Score", dir: "higher_is_better", scale: "score" }],
+          color: { fill: "rgba(77,182,172,0.35)", stroke: "#4db6ac" } },
+
+        { id: "oiliness", name: "Oiliness",
+          desc: "Oiliness measures excess sebum production. High oil leads to enlarged pores, acne, and shine. Ratings: 90\u2013100 None, 70\u201389 Mild, 50\u201369 Moderate, 30\u201349 Severe.",
+          regions: [],
+          dials: [{ path: "result.score_info.oily_intensity_score", label: "Oiliness Score", dir: "higher_is_better", scale: "score" }],
+          color: { fill: "rgba(255,183,77,0.35)", stroke: "#ffb74d" } },
+
+        { id: "severity_levels", name: "Severity Levels",
+          desc: "Severity values (0\u20133 scale) across all detected conditions. 0 = None, 1 = Mild, 2 = Moderate, 3 = Severe. Lower is better.",
+          regions: [],
+          dials: [
+              { path: "result.eye_pouch_severity.value", label: "Eye Pouch", dir: "lower_is_better", scale: "severity" },
+              { path: "result.dark_circle_severity.value", label: "Dark Circle", dir: "lower_is_better", scale: "severity" },
+              { path: "result.forehead_wrinkle_severity.value", label: "Forehead Wrinkle", dir: "lower_is_better", scale: "severity" },
+              { path: "result.left_nasolabial_fold_severity.value", label: "Nasolabial (L)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.right_nasolabial_fold_severity.value", label: "Nasolabial (R)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.left_crows_feet_severity.value", label: "Crow's Feet (L)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.right_crows_feet_severity.value", label: "Crow's Feet (R)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.left_eye_finelines_severity.value", label: "Fine Lines (L)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.right_eye_finelines_severity.value", label: "Fine Lines (R)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.glabella_wrinkle_severity.value", label: "Glabellar", dir: "lower_is_better", scale: "severity" },
+              { path: "result.pores_forehead.value", label: "Pore Forehead", dir: "lower_is_better", scale: "severity" },
+              { path: "result.pores_left_cheek.value", label: "Pore L.Cheek", dir: "lower_is_better", scale: "severity" },
+              { path: "result.pores_right_cheek.value", label: "Pore R.Cheek", dir: "lower_is_better", scale: "severity" },
+              { path: "result.pores_jaw.value", label: "Pore Jaw", dir: "lower_is_better", scale: "severity" },
+              { path: "result.left_mouth_wrinkle_severity.value", label: "Mouth (L)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.right_mouth_wrinkle_severity.value", label: "Mouth (R)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.left_cheek_wrinkle_severity.value", label: "Cheek (L)", dir: "lower_is_better", scale: "severity" },
+              { path: "result.right_cheek_wrinkle_severity.value", label: "Cheek (R)", dir: "lower_is_better", scale: "severity" }
+          ],
+          color: { fill: "rgba(200,200,200,0.2)", stroke: "#aaa" } },
+
+        { id: "summary", name: "Summary",
+          desc: "For ALL scores (except skin_type_score): Higher = Better skin condition. 90\u2013100 = Excellent / None, 70\u201389 = Mild issues, 50\u201369 = Moderate issues, 30\u201349 = Severe issues.\n\nFor skin_type_score: Lower = healthier (neutral skin). For severity values (0\u20133): Lower = better. For counts (acne, blackheads, pores): Lower = better (fewer issues).",
+          regions: ["face"],
+          dials: [
+              { path: "result.score_info.total_score", label: "Total Score", dir: "higher_is_better", scale: "score" },
+              { path: "result.skin_age.value", label: "Skin Age", dir: "lower_is_better", scale: "age" }
+          ],
+          color: { fill: "rgba(74,144,217,0.2)", stroke: "#4a90d9" } }
+    ];
+
+    function getNestedVal(obj, path) {
+        var parts = path.split(".");
+        var v = obj;
+        for (var i = 0; i < parts.length && v != null; i++) v = v[parts[i]];
+        return v;
+    }
+
+    function buildConditionTabs(data) {
+        var tabBar = document.getElementById("condition-tab-bar");
+        var panels = document.getElementById("condition-panels");
+
+        panels.querySelectorAll(".condition-panel-dynamic").forEach(function (el) { el.remove(); });
+
+        var tabHtml = '<button class="condition-tab active" data-cpanel="cpanel-overview">Overview</button>';
+        var activeTabs = [];
+        CONDITION_TABS.forEach(function (tab) {
+            var hasData = tab.dials.some(function (d) {
+                return typeof getNestedVal(data.metrics || {}, d.path) === "number";
+            });
+            if (!hasData) return;
+            activeTabs.push(tab);
+            tabHtml += '<button class="condition-tab" data-cpanel="cpanel-' + tab.id + '">' + esc(tab.name) + "</button>";
+        });
+        tabBar.innerHTML = tabHtml;
+
+        var origImg = originalImgSrc || data.image_base64 || "";
+        var regions = data.regions || {};
+        var iw = data.image_width || 0;
+        var ih = data.image_height || 0;
+
+        activeTabs.forEach(function (tab) {
+            var panel = document.createElement("div");
+            panel.className = "condition-panel condition-panel-dynamic";
+            panel.id = "cpanel-" + tab.id;
+            panel.dataset.imgLoaded = "false";
+
+            var rects = [];
+            tab.regions.forEach(function (rk) {
+                if (regions[rk]) rects = rects.concat(regions[rk]);
+            });
+
+            var svgContent = "";
+            rects.forEach(function (r) {
+                svgContent += '<rect x="' + r.left + '" y="' + r.top +
+                    '" width="' + r.width + '" height="' + r.height +
+                    '" fill="' + tab.color.fill + '" stroke="' + tab.color.stroke +
+                    '" stroke-width="2.5" rx="4"/>';
+            });
+
+            var dialsHtml = "";
+            var dialCount = 0;
+            tab.dials.forEach(function (d) {
+                var v = getNestedVal(data.metrics || {}, d.path);
+                if (typeof v !== "number") return;
+                dialCount++;
+                var cfg = getDialConfig(d.path, d.dir, v, 0, d.scale);
+                var lbl = v % 1 === 0 ? String(Math.round(v)) : v.toFixed(1);
+                dialsHtml += '<div class="cg-mini-dial">' +
+                    '<div class="cg-mini-label">' + esc(d.label) + "</div>" +
+                    buildGlassDial(cfg, [{ val: v, color: "rgba(74,144,217,0.95)", glow: true }], lbl) +
+                    "</div>";
+            });
+
+            var detBadge = rects.length > 0
+                ? '<div class="cg-badge">' + rects.length + " region" + (rects.length > 1 ? "s" : "") + " detected</div>"
+                : '<div class="cg-badge cg-badge-clear">No affected regions detected</div>';
+
+            var overlayHtml = (iw > 0 && ih > 0)
+                ? '<svg class="cg-overlay" viewBox="0 0 ' + iw + " " + ih + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">' + svgContent + "</svg>"
+                : "";
+
+            var noRegionMsg = rects.length === 0
+                ? '<div class="cg-no-regions">No visual markers for this condition</div>'
+                : "";
+
+            var multiClass = dialCount > 1 ? " cg-multi-dials" : "";
+
+            panel.innerHTML =
+                '<div class="condition-grid">' +
+                '<div class="cg-cell cg-info glass-card">' +
+                    '<div class="cg-cell-inner">' +
+                    '<h3 class="cg-name">' + esc(tab.name) + "</h3>" +
+                    '<div class="cg-desc">' + tab.desc.replace(/\n/g, "<br>") + "</div>" +
+                    detBadge +
+                    "</div>" +
+                "</div>" +
+                '<div class="cg-cell cg-video glass-card">' +
+                    '<div class="cg-cell-inner video-placeholder">' +
+                    '<svg class="vp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">' +
+                    '<rect x="2" y="4" width="15" height="16" rx="2"/>' +
+                    '<path d="M17 9l5-3v12l-5-3z"/>' +
+                    "</svg>" +
+                    '<span class="vp-text">Video Coming Soon</span>' +
+                    "</div>" +
+                "</div>" +
+                '<div class="cg-cell cg-image glass-card">' +
+                    '<div class="cg-cell-inner">' +
+                    '<div class="cg-img-wrap">' +
+                    '<img class="cg-face-img" alt="' + esc(tab.name) + ' regions">' +
+                    overlayHtml +
+                    "</div>" +
+                    noRegionMsg +
+                    "</div>" +
+                "</div>" +
+                '<div class="cg-cell cg-dial glass-card">' +
+                    '<div class="cg-cell-inner cg-dial-inner">' +
+                    '<div class="' + multiClass + '">' + dialsHtml + "</div>" +
+                    "</div>" +
+                "</div>" +
+                "</div>";
+
+            panels.appendChild(panel);
+        });
+
+        tabBar.querySelectorAll(".condition-tab").forEach(function (btn) {
+            btn.onclick = function () {
+                tabBar.querySelectorAll(".condition-tab").forEach(function (b) { b.classList.remove("active"); });
+                panels.querySelectorAll(".condition-panel").forEach(function (p) { p.classList.remove("active"); });
+                btn.classList.add("active");
+                var target = document.getElementById(btn.dataset.cpanel);
+                if (target) {
+                    target.classList.add("active");
+                    if (target.dataset.imgLoaded === "false") {
+                        var img = target.querySelector(".cg-face-img");
+                        if (img) img.src = origImg;
+                        target.dataset.imgLoaded = "true";
+                    }
+                }
+            };
+        });
     }
 
     // ── SVG Overlay Highlighting ──
@@ -596,11 +881,28 @@
         ];
     }
 
-    function getDialConfig(key, dir, val1, val2) {
+    function getDialConfig(key, dir, val1, val2, scale) {
+        if (scale === "severity") return { min: 0, max: 3, zones: SEVERITY_ZONES };
+        if (scale === "score") return { min: 0, max: 100, zones: SCORE_ZONES };
+        if (scale === "skin_type") return { min: 0, max: 100, zones: [
+            { min: 0,  max: 15, label: "Neutral",  color: [150, 65, 42] },
+            { min: 15, max: 40, label: "Dry",      color: [80, 70, 50] },
+            { min: 40, max: 60, label: "Combo",    color: [30, 90, 55] },
+            { min: 60, max: 100, label: "Oily",    color: [350, 65, 55] }
+        ] };
+        if (scale === "age") {
+            var ma = Math.max(val1 || 0, val2 || 0, 80);
+            return { min: 0, max: ma, zones: [
+                { min: 0,        max: ma * 0.3,  label: "Young",  color: [150, 65, 42] },
+                { min: ma * 0.3, max: ma * 0.5,  label: "Good",   color: [80, 70, 50] },
+                { min: ma * 0.5, max: ma * 0.75, label: "Mature", color: [30, 90, 55] },
+                { min: ma * 0.75, max: ma,        label: "Aged",   color: [350, 65, 55] }
+            ] };
+        }
         if (dir === "higher_is_better") {
             return { min: 0, max: 100, zones: SCORE_ZONES };
         }
-        if (key.indexOf(".severity") !== -1 || key.indexOf("oily_severity") !== -1) {
+        if (key.indexOf("severity") !== -1) {
             return { min: 0, max: 3, zones: SEVERITY_ZONES };
         }
         if (key.indexOf("skin_age") !== -1) {
@@ -617,8 +919,16 @@
             return { min: 0, max: mx2, zones: [
                 { min: 0,         max: mx2 * 0.1, label: "None",     color: [150, 65, 42] },
                 { min: mx2 * 0.1, max: mx2 * 0.3, label: "Mild",     color: [80, 70, 50] },
-                { min: mx2 * 0.3, max: mx2 * 0.6, label: "Moderate",  color: [30, 90, 55] },
-                { min: mx2 * 0.6, max: mx2,        label: "Severe",   color: [350, 65, 55] }
+                { min: mx2 * 0.3, max: mx2 * 0.6, label: "Moderate", color: [30, 90, 55] },
+                { min: mx2 * 0.6, max: mx2,        label: "Severe",  color: [350, 65, 55] }
+            ] };
+        }
+        if (key.indexOf("skin_type_score") !== -1) {
+            return { min: 0, max: 100, zones: [
+                { min: 0,  max: 15, label: "Neutral",  color: [150, 65, 42] },
+                { min: 15, max: 40, label: "Dry",      color: [80, 70, 50] },
+                { min: 40, max: 60, label: "Combo",    color: [30, 90, 55] },
+                { min: 60, max: 100, label: "Oily",    color: [350, 65, 55] }
             ] };
         }
         var cMax = Math.max(val1 || 0, val2 || 0, 5);
@@ -648,20 +958,20 @@
             var gid = uid + "zg" + i;
             var base = z.color;
             s += '<linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">';
-            s += '<stop offset="0%" stop-color="' + hsl(hslLight(base, 22)) + '" stop-opacity="0.85"/>';
-            s += '<stop offset="50%" stop-color="' + hsl(base) + '" stop-opacity="0.7"/>';
-            s += '<stop offset="100%" stop-color="' + hsl(hslLight(base, -8)) + '" stop-opacity="0.6"/>';
+            s += '<stop offset="0%" stop-color="' + hsl(hslLight(base, 18)) + '" stop-opacity="0.9"/>';
+            s += '<stop offset="50%" stop-color="' + hsl(base) + '" stop-opacity="0.8"/>';
+            s += '<stop offset="100%" stop-color="' + hsl(hslLight(base, -6)) + '" stop-opacity="0.7"/>';
             s += "</linearGradient>";
         });
         var glassId = uid + "glass";
         s += '<radialGradient id="' + glassId + '" cx="50%" cy="30%" r="70%">';
-        s += '<stop offset="0%" stop-color="rgba(255,255,255,0.35)"/>';
-        s += '<stop offset="100%" stop-color="rgba(255,255,255,0)"/>';
+        s += '<stop offset="0%" stop-color="rgba(255,255,255,0.55)"/>';
+        s += '<stop offset="100%" stop-color="rgba(255,255,255,0.05)"/>';
         s += "</radialGradient>";
         var hubId = uid + "hub";
         s += '<radialGradient id="' + hubId + '" cx="40%" cy="35%" r="60%">';
-        s += '<stop offset="0%" stop-color="rgba(200,220,255,0.9)"/>';
-        s += '<stop offset="100%" stop-color="rgba(80,100,140,0.7)"/>';
+        s += '<stop offset="0%" stop-color="rgba(220,240,255,0.95)"/>';
+        s += '<stop offset="100%" stop-color="rgba(100,160,220,0.8)"/>';
         s += "</radialGradient>";
         s += "</defs>";
 
@@ -689,16 +999,16 @@
                 var ly = cy - lr * Math.sin(midA);
                 s += '<text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) +
                     '" text-anchor="middle" dominant-baseline="central"' +
-                    ' fill="rgba(255,255,255,0.92)" font-size="8.5" font-weight="600"' +
-                    ' style="text-shadow:0 1px 3px rgba(0,0,0,0.5)">' + z.label + "</text>";
+                    ' fill="rgba(255,255,255,0.95)" font-size="8.5" font-weight="700"' +
+                    ' style="text-shadow:0 1px 4px rgba(0,40,80,0.45)">' + z.label + "</text>";
             }
         });
 
         var outerR = R + 2;
         s += '<path d="M ' + (cx - outerR) + " " + cy + " A " + outerR + " " + outerR +
-            ' 0 0 1 ' + (cx + outerR) + " " + cy + '" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>';
+            ' 0 0 1 ' + (cx + outerR) + " " + cy + '" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>';
         s += '<path d="M ' + (cx - r2 + 2) + " " + cy + " A " + (r2 - 2) + " " + (r2 - 2) +
-            ' 0 0 1 ' + (cx + r2 - 2) + " " + cy + '" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
+            ' 0 0 1 ' + (cx + r2 - 2) + " " + cy + '" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>';
 
         var tickCount = 5;
         for (var i = 0; i <= tickCount; i++) {
@@ -708,11 +1018,11 @@
             var tx2 = cx + (R + 7) * Math.cos(ta), ty2 = cy - (R + 7) * Math.sin(ta);
             s += '<line x1="' + tx1.toFixed(1) + '" y1="' + ty1.toFixed(1) +
                 '" x2="' + tx2.toFixed(1) + '" y2="' + ty2.toFixed(1) +
-                '" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>';
+                '" stroke="rgba(26,60,100,0.3)" stroke-width="1.2" stroke-linecap="round"/>';
             var tlx = cx + (R + 16) * Math.cos(ta), tly = cy - (R + 16) * Math.sin(ta);
             var dv = tv % 1 === 0 ? String(Math.round(tv)) : tv.toFixed(1);
             s += '<text x="' + tlx.toFixed(1) + '" y="' + tly.toFixed(1) +
-                '" text-anchor="middle" dominant-baseline="central" fill="rgba(255,255,255,0.55)" font-size="7.5">' +
+                '" text-anchor="middle" dominant-baseline="central" fill="rgba(26,58,92,0.6)" font-size="7.5">' +
                 dv + "</text>";
         }
 
@@ -720,13 +1030,13 @@
             s += drawGlassNeedle(cx, cy, R, cfg, n.val, n.color, n.glow);
         });
 
-        s += '<circle cx="' + cx + '" cy="' + cy + '" r="8" fill="url(#' + hubId + ')" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>';
-        s += '<circle cx="' + (cx - 1.5) + '" cy="' + (cy - 2) + '" r="3" fill="rgba(255,255,255,0.5)"/>';
+        s += '<circle cx="' + cx + '" cy="' + cy + '" r="8" fill="url(#' + hubId + ')" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/>';
+        s += '<circle cx="' + (cx - 1.5) + '" cy="' + (cy - 2) + '" r="3" fill="rgba(255,255,255,0.7)"/>';
 
         if (centerLabel !== undefined && centerLabel !== null) {
             s += '<text x="' + cx + '" y="' + (cy - 20) +
-                '" text-anchor="middle" fill="rgba(255,255,255,0.95)" font-size="16" font-weight="700"' +
-                ' style="text-shadow:0 0 10px rgba(100,180,255,0.6)">' + esc(String(centerLabel)) + "</text>";
+                '" text-anchor="middle" fill="rgba(26,58,92,0.9)" font-size="16" font-weight="700"' +
+                ' style="text-shadow:0 0 8px rgba(255,255,255,0.8)">' + esc(String(centerLabel)) + "</text>";
         }
 
         s += "</svg>";
@@ -759,9 +1069,9 @@
             '" fill="' + color + '" opacity="0.9"/>';
         s += '<line x1="' + cx + '" y1="' + cy +
             '" x2="' + nx.toFixed(1) + '" y2="' + ny.toFixed(1) +
-            '" stroke="rgba(255,255,255,0.5)" stroke-width="0.8" stroke-linecap="round"/>';
+            '" stroke="rgba(255,255,255,0.8)" stroke-width="0.8" stroke-linecap="round"/>';
         s += '<circle cx="' + nx.toFixed(1) + '" cy="' + ny.toFixed(1) +
-            '" r="3.5" fill="' + color + '" stroke="rgba(255,255,255,0.6)" stroke-width="1"/>';
+            '" r="3.5" fill="' + color + '" stroke="rgba(255,255,255,0.85)" stroke-width="1"/>';
         return s;
     }
 
