@@ -342,18 +342,18 @@
     //  ENHANCED RECTANGLE HELPERS
     // ══════════════════════════════════════════════════
 
-    var RECT_PAD = 10;
-    var RECT_STROKE_W = 3.5;
-    var BRACKET_W = 5;
+    var RECT_PAD = 18;
+    var RECT_STROKE_W = 4;
+    var BRACKET_W = 5.5;
     var BRACKET_LEN_RATIO = 0.28;
-    var BRACKET_MAX = 18;
+    var BRACKET_MAX = 22;
 
     function buildEnhancedRectSvg(rects, color, iw, ih, filterId) {
         if (!rects.length) return { defs: "", body: "" };
 
-        var defs = '<filter id="' + filterId + '">' +
-            '<feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>' +
-            '<feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.7 0" result="glow"/>' +
+        var defs = '<filter id="' + filterId + '" x="-50%" y="-50%" width="200%" height="200%">' +
+            '<feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur"/>' +
+            '<feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.8 0" result="glow"/>' +
             '<feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>' +
             '</filter>';
 
@@ -367,7 +367,7 @@
             if (iw > 0 && x + w > iw) w = iw - x;
             if (ih > 0 && y + h > ih) h = ih - y;
 
-            var fillOpacity = color.fill.replace(/[\d.]+\)$/, "0.22)");
+            var fillOpacity = color.fill.replace(/[\d.]+\)$/, "0.32)");
 
             body += '<rect x="' + x + '" y="' + y +
                 '" width="' + w + '" height="' + h +
@@ -399,15 +399,19 @@
 
         var filter = document.createElementNS(ns, "filter");
         filter.setAttribute("id", filterId);
+        filter.setAttribute("x", "-50%");
+        filter.setAttribute("y", "-50%");
+        filter.setAttribute("width", "200%");
+        filter.setAttribute("height", "200%");
         var blur = document.createElementNS(ns, "feGaussianBlur");
         blur.setAttribute("in", "SourceGraphic");
-        blur.setAttribute("stdDeviation", "5");
+        blur.setAttribute("stdDeviation", "8");
         blur.setAttribute("result", "blur");
         filter.appendChild(blur);
         var cm = document.createElementNS(ns, "feColorMatrix");
         cm.setAttribute("in", "blur");
         cm.setAttribute("type", "matrix");
-        cm.setAttribute("values", "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.7 0");
+        cm.setAttribute("values", "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.8 0");
         cm.setAttribute("result", "glow");
         filter.appendChild(cm);
         var merge = document.createElementNS(ns, "feMerge");
@@ -431,7 +435,7 @@
             if (iw > 0 && x + w > iw) w = iw - x;
             if (ih > 0 && y + h > ih) h = ih - y;
 
-            var fillOpacity = color.fill.replace(/[\d.]+\)$/, "0.22)");
+            var fillOpacity = color.fill.replace(/[\d.]+\)$/, "0.32)");
 
             var rect = document.createElementNS(ns, "rect");
             rect.setAttribute("x", x);
@@ -516,10 +520,23 @@
           color: { fill: "rgba(171,71,188,0.35)", stroke: "#ab47bc" } },
 
         { id: "brown_spots", name: "Brown Spots",
-          desc: "Sun spots, age spots, and melasma from excess melanin. Concentration 0\u20130.09%: None, 0.10\u20130.30%: Mild, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
-          regions: ["brown_spot", "mole"],
-          dials: [{ path: "result.score_info.brown_spot_score", label: "Brown Spot Score", dir: "higher_is_better", scale: "score" }],
+          desc: "Sun spots, age spots, and melasma from excess melanin. Brown spots are areas of hyperpigmentation caused by UV exposure, aging, or hormonal changes. The melanin score reflects overall pigmentation health. Concentration 0\u20130.09%: None, 0.10\u20130.30%: Mild, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
+          regions: ["brown_spot"],
+          dials: [
+              { path: "result.score_info.melanin_score", label: "Melanin Score", dir: "higher_is_better", scale: "score" },
+              { path: "result.brown_spot.count", label: "Spots Detected", dir: "lower_is_better", scale: "count_spots" },
+              { path: "result.melasma.value", label: "Melasma", dir: "lower_is_better", scale: "severity" },
+              { path: "result.freckle.value", label: "Freckle", dir: "lower_is_better", scale: "severity" }
+          ],
           color: { fill: "rgba(141,110,99,0.35)", stroke: "#8d6e63" } },
+
+        { id: "moles", name: "Moles",
+          desc: "Moles (nevi) are benign growths of melanocytes. While usually harmless, changes in size, shape, or color should be monitored. The API detects and counts visible moles, providing their locations on the face.",
+          regions: ["mole"],
+          dials: [
+              { path: "result.mole.count", label: "Moles Detected", dir: "lower_is_better", scale: "count_spots" }
+          ],
+          color: { fill: "rgba(121,85,72,0.35)", stroke: "#795548" } },
 
         { id: "sensitivity", name: "Sensitivity",
           desc: "Skin sensitivity indicates reactivity to environmental factors. Measured by affected area and redness. Area 0\u20130.09%: None, 0.10\u20130.30%: Mild, 0.31\u20130.60%: Moderate, 0.61%+: Severe.",
@@ -547,7 +564,8 @@
           regions: ["brown_spot", "mole"],
           dials: [
               { path: "result.score_info.melanin_score", label: "Melanin Score", dir: "higher_is_better", scale: "score" },
-              { path: "result.score_info.brown_spot_score", label: "Brown Spot Score", dir: "higher_is_better", scale: "score" }
+              { path: "result.brown_spot.count", label: "Brown Spots", dir: "lower_is_better", scale: "count_spots" },
+              { path: "result.mole.count", label: "Moles", dir: "lower_is_better", scale: "count_spots" }
           ],
           color: { fill: "rgba(161,136,127,0.35)", stroke: "#a1887f" } },
 
@@ -840,7 +858,6 @@
                 if (bRegions[rk]) bRects = bRects.concat(bRegions[rk]);
                 if (aRegions[rk]) aRects = aRects.concat(aRegions[rk]);
             });
-
             var bFiltId = "cg-b-" + tab.id;
             var aFiltId = "cg-a-" + tab.id;
             var bEnhanced = buildEnhancedRectSvg(bRects, tab.color, bIw, bIh, bFiltId);
@@ -855,10 +872,10 @@
 
             var bBadge = bRects.length > 0
                 ? '<div class="cg-badge">' + bRects.length + ' region' + (bRects.length > 1 ? 's' : '') + '</div>'
-                : '';
+                : '<div class="cg-badge cg-badge-clear">No regions</div>';
             var aBadge = aRects.length > 0
                 ? '<div class="cg-badge">' + aRects.length + ' region' + (aRects.length > 1 ? 's' : '') + '</div>'
-                : '';
+                : '<div class="cg-badge cg-badge-clear">No regions</div>';
 
             panel.innerHTML =
                 '<div class="comp-cond-info glass-card">' +
@@ -1182,6 +1199,17 @@
     function getDialConfig(key, dir, val1, val2, scale) {
         if (scale === "severity") return { min: 0, max: 3, zones: SEVERITY_ZONES };
         if (scale === "score") return { min: 0, max: 100, zones: SCORE_ZONES };
+        if (scale === "count_spots") {
+            var mx = Math.max(val1 || 0, val2 || 0, 30);
+            mx = Math.ceil(mx / 10) * 10;
+            if (mx < 10) mx = 10;
+            return { min: 0, max: mx, zones: [
+                { min: 0,          max: mx * 0.1,  label: "None",     color: [150, 65, 42] },
+                { min: mx * 0.1,   max: mx * 0.35, label: "Few",      color: [80, 70, 50] },
+                { min: mx * 0.35,  max: mx * 0.65, label: "Moderate", color: [30, 90, 55] },
+                { min: mx * 0.65,  max: mx,        label: "Many",     color: [350, 65, 55] }
+            ] };
+        }
         if (scale === "skin_type") return { min: 0, max: 100, zones: [
             { min: 0,  max: 15, label: "Neutral",  color: [150, 65, 42] },
             { min: 15, max: 40, label: "Dry",      color: [80, 70, 50] },

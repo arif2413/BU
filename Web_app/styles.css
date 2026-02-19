@@ -1228,9 +1228,13 @@ main {
 }
 
 .comp-img-col .cg-img-wrap {
-    max-width: 320px;
+    max-width: 420px;
     margin: 0 auto;
     box-shadow: 0 4px 16px rgba(0, 60, 120, 0.08);
+}
+
+.comp-img-col .cg-overlay {
+    z-index: 2;
 }
 
 .comp-img-col .cg-badge {
