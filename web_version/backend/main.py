@@ -8,13 +8,14 @@ import json
 import logging
 from pathlib import Path
 from datetime import datetime
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import Depends, FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 
 from .analyzer import run_analysis
@@ -23,12 +24,31 @@ from typing import Dict
 
 from PIL import Image
 
+from .auth import get_current_user
+from .auth_config import settings
+from .db import Base, engine
+from .models import User
+from .routes_auth import router as auth_router
+
 load_dotenv()
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Skin Analysis API")
 
 UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
+
+
+def _user_upload_dir(user: User) -> Path:
+    """
+    Return the per-user uploads directory, creating it if needed.
+
+    This keeps all analysis images/JSON scoped to the authenticated user.
+    """
+    user_dir = UPLOADS_DIR / f"user_{user.id}"
+    user_dir.mkdir(parents=True, exist_ok=True)
+    return user_dir
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +57,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.jwt_secret_key or "replace-this-session-secret",
+)
+
+app.include_router(auth_router)
 
 
 COMPARE_KEYS = [
@@ -314,7 +341,10 @@ def _judge_change(key, before_val, after_val):
 
 
 @app.post("/analyze")
-async def analyze(image: UploadFile = File(..., description="Image file (JPEG/PNG)")):
+async def analyze(
+    image: UploadFile = File(..., description="Image file (JPEG/PNG)"),
+    current_user: User = Depends(get_current_user),
+):
     """Accept image upload, run skin analysis, return metrics and annotated image."""
     logger.info("=== INCOMING REQUEST ===")
     logger.info("Filename: %s | Content-Type: %s", image.filename, image.content_type)
@@ -335,11 +365,13 @@ async def analyze(image: UploadFile = File(..., description="Image file (JPEG/PN
         logger.warning("Rejected: empty file")
         raise HTTPException(status_code=400, detail="Empty file")
 
+    user_dir = _user_upload_dir(current_user)
+
     analysis_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     ext = Path(image.filename).suffix if image.filename else ".jpg"
     if ext.lower() not in (".jpg", ".jpeg", ".png", ".webp"):
         ext = ".jpg"
-    img_path = UPLOADS_DIR / f"{analysis_id}{ext}"
+    img_path = user_dir / f"{analysis_id}{ext}"
     try:
         img_path.write_bytes(image_bytes)
         logger.info("Saved upload to %s", img_path)
@@ -357,8 +389,9 @@ async def analyze(image: UploadFile = File(..., description="Image file (JPEG/PN
         "image_file": img_path.name,
         "metrics": result["metrics"],
         "image_base64": result["image_base64"],
+        "user_id": current_user.id,
     }
-    json_path = UPLOADS_DIR / f"{analysis_id}.json"
+    json_path = user_dir / f"{analysis_id}.json"
     try:
         json_path.write_text(json.dumps(record, default=str), encoding="utf-8")
         logger.info("Saved analysis JSON to %s", json_path)
@@ -400,10 +433,11 @@ async def check_lighting(image: UploadFile = File(..., description="Image file (
 
 
 @app.get("/history")
-def history():
-    """List all past analyses, newest first."""
+def history(current_user: User = Depends(get_current_user)):
+    """List all past analyses for the current user, newest first."""
+    user_dir = _user_upload_dir(current_user)
     entries = []
-    for jf in sorted(UPLOADS_DIR.glob("*.json"), reverse=True):
+    for jf in sorted(user_dir.glob("*.json"), reverse=True):
         try:
             data = json.loads(jf.read_text(encoding="utf-8"))
             entries.append({
@@ -417,10 +451,11 @@ def history():
 
 
 @app.get("/history/{analysis_id}/thumb")
-def history_thumb(analysis_id: str):
-    """Return the original uploaded image for a given analysis."""
+def history_thumb(analysis_id: str, current_user: User = Depends(get_current_user)):
+    """Return the original uploaded image for a given analysis belonging to the current user."""
+    user_dir = _user_upload_dir(current_user)
     for ext in (".jpg", ".jpeg", ".png", ".webp"):
-        path = UPLOADS_DIR / f"{analysis_id}{ext}"
+        path = user_dir / f"{analysis_id}{ext}"
         if path.exists():
             media = "image/jpeg" if ext in (".jpg", ".jpeg") else f"image/{ext.lstrip('.')}"
             return FileResponse(path, media_type=media)
@@ -428,9 +463,10 @@ def history_thumb(analysis_id: str):
 
 
 @app.get("/history/{analysis_id}/data")
-def history_data(analysis_id: str):
-    """Return stored analysis data (metrics only, no base64 image)."""
-    json_path = UPLOADS_DIR / f"{analysis_id}.json"
+def history_data(analysis_id: str, current_user: User = Depends(get_current_user)):
+    """Return stored analysis data (metrics only, no base64 image) for the current user."""
+    user_dir = _user_upload_dir(current_user)
+    json_path = user_dir / f"{analysis_id}.json"
     if not json_path.exists():
         raise HTTPException(status_code=404, detail="Analysis not found")
     data = json.loads(json_path.read_text(encoding="utf-8"))
@@ -439,10 +475,15 @@ def history_data(analysis_id: str):
 
 
 @app.get("/compare/{before_id}/{after_id}")
-def compare(before_id: str, after_id: str):
-    """Compare two analyses, returning meaningful parameter differences."""
-    before_path = UPLOADS_DIR / f"{before_id}.json"
-    after_path = UPLOADS_DIR / f"{after_id}.json"
+def compare(
+    before_id: str,
+    after_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Compare two analyses for the current user, returning meaningful parameter differences."""
+    user_dir = _user_upload_dir(current_user)
+    before_path = user_dir / f"{before_id}.json"
+    after_path = user_dir / f"{after_id}.json"
 
     if not before_path.exists():
         raise HTTPException(status_code=404, detail=f"Analysis '{before_id}' not found")

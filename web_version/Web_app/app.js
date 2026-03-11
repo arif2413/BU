@@ -1,6 +1,302 @@
 (function () {
     "use strict";
 
+    // ── Auth state / routing ──
+    const authShell = document.getElementById("auth-shell");
+    const appShell = document.getElementById("app-shell");
+    const loginForm = document.getElementById("login-form");
+    const loginEmailInput = document.getElementById("login-email");
+    const loginPasswordInput = document.getElementById("login-password");
+    const loginError = document.getElementById("login-error");
+    const btnRegister = document.getElementById("btn-register");
+    const signupView = document.getElementById("signup-view");
+    const loginView = document.getElementById("login-view");
+    const signupForm = document.getElementById("signup-form");
+    const signupFirstNameInput = document.getElementById("signup-first-name");
+    const signupLastNameInput = document.getElementById("signup-last-name");
+    const signupEmailInput = document.getElementById("signup-email");
+    const signupPasswordInput = document.getElementById("signup-password");
+    const signupError = document.getElementById("signup-error");
+    const btnBackToLogin = document.getElementById("btn-back-to-login");
+    const socialButtons = document.querySelectorAll(".auth-social-btn[data-provider]");
+    const headerUserLabel = document.getElementById("header-user-label");
+    const btnLogout = document.getElementById("btn-logout");
+
+    let currentUser = null;
+
+    function showAuthShell(message) {
+        if (appShell) appShell.style.display = "none";
+        if (authShell) authShell.style.display = "flex";
+        if (message && loginError) {
+            loginError.textContent = message;
+            loginError.style.display = "block";
+        }
+    }
+
+    function showAppShell() {
+        if (authShell) authShell.style.display = "none";
+        if (appShell) appShell.style.display = "block";
+        if (headerUserLabel) {
+            headerUserLabel.textContent = currentUser && currentUser.email
+                ? "Signed in as " + currentUser.email
+                : "";
+        }
+    }
+
+    async function fetchCurrentUser() {
+        try {
+            const res = await fetch("/auth/me", { credentials: "include" });
+            if (!res.ok) return null;
+            const data = await res.json();
+            return data;
+        } catch (_e) {
+            return null;
+        }
+    }
+
+    function showLoginView() {
+        if (loginView) loginView.classList.add("active");
+        if (signupView) signupView.classList.remove("active");
+        if (loginError) {
+            loginError.style.display = "none";
+            loginError.textContent = "";
+        }
+        if (signupError) {
+            signupError.style.display = "none";
+            signupError.textContent = "";
+        }
+    }
+
+    function showSignupView() {
+        if (loginView) loginView.classList.remove("active");
+        if (signupView) signupView.classList.add("active");
+        if (loginError) {
+            loginError.style.display = "none";
+            loginError.textContent = "";
+        }
+        if (signupError) {
+            signupError.style.display = "none";
+            signupError.textContent = "";
+        }
+    }
+
+    // ── Workspace reset (per-user visual state) ──
+    function resetWorkspaceState() {
+        // Clear analysis state
+        const resultsDiv = document.getElementById("results");
+        const errorDiv = document.getElementById("error");
+        const loading = document.getElementById("loading");
+        const resultImg = document.getElementById("result-img");
+        const metricsDiv = document.getElementById("metrics");
+        const rawPre = document.getElementById("raw-output");
+        const overlaySvg = document.getElementById("result-overlay");
+        const analyzeBtn = document.getElementById("analyze");
+        const preview = document.getElementById("preview");
+        const cameraPreview = document.getElementById("camera-preview");
+
+        if (resultsDiv) resultsDiv.style.display = "none";
+        if (errorDiv) {
+            errorDiv.style.display = "none";
+            errorDiv.textContent = "";
+        }
+        if (loading) loading.style.display = "none";
+        if (resultImg) {
+            resultImg.src = "";
+            resultImg.removeAttribute("alt");
+        }
+        if (overlaySvg) overlaySvg.innerHTML = "";
+        if (metricsDiv) metricsDiv.innerHTML = "";
+        if (rawPre) rawPre.textContent = "";
+        if (analyzeBtn) analyzeBtn.disabled = true;
+
+        // Clear upload / camera previews
+        if (preview) {
+            preview.style.display = "none";
+            preview.removeAttribute("src");
+        }
+        if (cameraPreview) {
+            cameraPreview.style.display = "none";
+            cameraPreview.removeAttribute("src");
+        }
+
+        // Clear history / compare state
+        const beforeList = document.getElementById("before-list");
+        const afterList = document.getElementById("after-list");
+        const historyGrid = document.getElementById("history-grid");
+        const noHistory = document.getElementById("no-history");
+        const compareResults = document.getElementById("compare-results");
+        const compareHeader = document.getElementById("compare-header");
+        const compareCharts = document.getElementById("compare-charts");
+        const compareError = document.getElementById("compare-error");
+
+        if (beforeList) beforeList.innerHTML = "";
+        if (afterList) afterList.innerHTML = "";
+        if (historyGrid) historyGrid.style.display = "none";
+        if (noHistory) noHistory.style.display = "none";
+        if (compareResults) compareResults.style.display = "none";
+        if (compareHeader) compareHeader.innerHTML = "";
+        if (compareCharts) compareCharts.innerHTML = "";
+        if (compareError) {
+            compareError.style.display = "none";
+            compareError.textContent = "";
+        }
+    }
+
+    async function bootstrapAuth() {
+        const me = await fetchCurrentUser();
+        if (me) {
+            currentUser = me;
+            resetWorkspaceState();
+            showAppShell();
+        } else {
+            resetWorkspaceState();
+            showAuthShell();
+            showLoginView();
+        }
+    }
+
+    if (loginForm) {
+        loginForm.onsubmit = async (e) => {
+            e.preventDefault();
+            if (loginError) {
+                loginError.style.display = "none";
+                loginError.textContent = "";
+            }
+            const email = loginEmailInput ? loginEmailInput.value.trim() : "";
+            const password = loginPasswordInput ? loginPasswordInput.value : "";
+            if (!email || !password) {
+                if (loginError) {
+                    loginError.textContent = "Please enter email and password.";
+                    loginError.style.display = "block";
+                }
+                return;
+            }
+            try {
+                const res = await fetch("/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const msg = data.detail || "Login failed. Check your credentials.";
+                    if (loginError) {
+                        loginError.textContent = typeof msg === "string" ? msg : JSON.stringify(msg);
+                        loginError.style.display = "block";
+                    }
+                    return;
+                }
+                currentUser = data;
+                resetWorkspaceState();
+                showAppShell();
+            } catch (err) {
+                if (loginError) {
+                    loginError.textContent = err instanceof Error ? err.message : String(err);
+                    loginError.style.display = "block";
+                }
+            }
+        };
+    }
+
+    if (btnRegister) {
+        btnRegister.onclick = () => {
+            showSignupView();
+        };
+    }
+
+    if (btnBackToLogin) {
+        btnBackToLogin.onclick = () => {
+            showLoginView();
+        };
+    }
+
+    if (signupForm) {
+        signupForm.onsubmit = async (e) => {
+            e.preventDefault();
+            if (signupError) {
+                signupError.style.display = "none";
+                signupError.textContent = "";
+            }
+            const firstName = signupFirstNameInput ? signupFirstNameInput.value.trim() : "";
+            const lastName = signupLastNameInput ? signupLastNameInput.value.trim() : "";
+            const email = signupEmailInput ? signupEmailInput.value.trim() : "";
+            const password = signupPasswordInput ? signupPasswordInput.value : "";
+            if (!firstName || !lastName || !email || !password) {
+                if (signupError) {
+                    signupError.textContent = "Please fill in all fields.";
+                    signupError.style.display = "block";
+                }
+                return;
+            }
+            const fullName = (firstName + " " + lastName).trim();
+            try {
+                const res = await fetch("/auth/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ email, password, name: fullName }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const msg = data.detail || "Registration failed.";
+                    if (signupError) {
+                        signupError.textContent = typeof msg === "string" ? msg : JSON.stringify(msg);
+                        signupError.style.display = "block";
+                    }
+                    return;
+                }
+                // Registration succeeded: immediately log in with same credentials.
+                const loginRes = await fetch("/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ email, password }),
+                });
+                const loginData = await loginRes.json().catch(() => ({}));
+                if (!loginRes.ok) {
+                    if (signupError) {
+                        signupError.textContent = "Account created, but automatic login failed. Try logging in again.";
+                        signupError.style.display = "block";
+                    }
+                    return;
+                }
+                currentUser = loginData;
+                resetWorkspaceState();
+                showAppShell();
+            } catch (err) {
+                if (signupError) {
+                    signupError.textContent = err instanceof Error ? err.message : String(err);
+                    signupError.style.display = "block";
+                }
+            }
+        };
+    }
+
+    if (socialButtons && socialButtons.length) {
+        socialButtons.forEach((btn) => {
+            btn.onclick = () => {
+                const provider = btn.dataset.provider;
+                if (!provider) return;
+                // Placeholder: backend will return 501 until configured.
+                window.location.href = "/auth/oauth/" + encodeURIComponent(provider) + "/start";
+            };
+        });
+    }
+
+    if (btnLogout) {
+        btnLogout.onclick = async () => {
+            try {
+                await fetch("/auth/logout", { method: "POST", credentials: "include" });
+            } catch (_e) {
+                // ignore
+            }
+            currentUser = null;
+            resetWorkspaceState();
+            showAuthShell();
+        };
+    }
+
     // ── Page Navigation ──
     const navBtns = document.querySelectorAll(".page-nav-btn");
     const pages = document.querySelectorAll(".page");
@@ -348,11 +644,19 @@
         formData.append("image", selectedFile, selectedFile.name || "image.jpg");
 
         try {
-            const res = await fetch("/analyze", { method: "POST", body: formData });
+            const res = await fetch("/analyze", {
+                method: "POST",
+                body: formData,
+                credentials: "include",
+            });
             let data;
             try { data = await res.json(); } catch (_) { data = {}; }
 
             if (!res.ok) {
+                if (res.status === 401) {
+                    showAuthShell("Your session has expired. Please log in again.");
+                    throw new Error("Not authenticated");
+                }
                 let msg = "Analysis failed";
                 if (data.detail) {
                     if (typeof data.detail === "string") msg = data.detail;
@@ -980,7 +1284,11 @@
         btnCompare.disabled = true;
 
         try {
-            const res = await fetch("/history");
+            const res = await fetch("/history", { credentials: "include" });
+            if (res.status === 401) {
+                showAuthShell("Please log in to view your history.");
+                throw new Error("Not authenticated");
+            }
             if (!res.ok) throw new Error("Failed to load history");
             const entries = await res.json();
 
@@ -1054,12 +1362,16 @@
 
         try {
             const [compRes, bDataRes, aDataRes] = await Promise.all([
-                fetch("/compare/" + encodeURIComponent(selectedBefore) + "/" + encodeURIComponent(selectedAfter)),
-                fetch("/history/" + encodeURIComponent(selectedBefore) + "/data"),
-                fetch("/history/" + encodeURIComponent(selectedAfter) + "/data")
+                fetch("/compare/" + encodeURIComponent(selectedBefore) + "/" + encodeURIComponent(selectedAfter), { credentials: "include" }),
+                fetch("/history/" + encodeURIComponent(selectedBefore) + "/data", { credentials: "include" }),
+                fetch("/history/" + encodeURIComponent(selectedAfter) + "/data", { credentials: "include" })
             ]);
             if (!compRes.ok) {
                 const d = await compRes.json().catch(() => ({}));
+                if (compRes.status === 401) {
+                    showAuthShell("Please log in to compare analyses.");
+                    throw new Error("Not authenticated");
+                }
                 throw new Error(d.detail || "Comparison failed");
             }
             const data = await compRes.json();
@@ -1597,5 +1909,12 @@
             }
         }
         return out;
+    }
+
+    // Bootstrap auth once DOM is ready
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", bootstrapAuth);
+    } else {
+        bootstrapAuth();
     }
 })();

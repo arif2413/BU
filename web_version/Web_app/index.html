@@ -7,162 +7,243 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header>
-        <h1>Skin Analysis</h1>
-        <p class="subtitle">Upload a face image or use your camera for AI-powered skin analysis</p>
-    </header>
-
-    <!-- Page-level navigation -->
-    <nav class="page-nav">
-        <button class="page-nav-btn active" id="nav-analyze" data-page="page-analyze">New Analysis</button>
-        <button class="page-nav-btn" id="nav-compare" data-page="page-compare">Compare Before &amp; After</button>
-    </nav>
-
-    <!-- ═══════════════ PAGE: ANALYZE ═══════════════ -->
-    <main class="page active" id="page-analyze">
-        <section class="input-section">
-            <div class="input-tabs">
-                <button class="tab active" id="tab-upload" data-tab="upload">Upload Image</button>
-                <button class="tab" id="tab-camera" data-tab="camera">Use Camera</button>
+    <!-- Auth shell (login / signup) -->
+    <div id="auth-shell" class="auth-shell" style="display:none;">
+        <div class="auth-card glass-card">
+            <div class="auth-logo-circle">
+                <div class="auth-logo-orb"></div>
             </div>
+            <h1 class="auth-title">Welcome to Skin Analysis</h1>
+            <p class="auth-subtitle">Sign in to access your personal analysis history and workspace.</p>
 
-            <div class="tab-panel active" id="panel-upload">
-                <div class="upload-zone" id="zone">
-                    <input type="file" id="file" accept="image/jpeg,image/png,image/jpg,image/webp" class="file-input-overlay">
-                    <div class="upload-icon" id="upload-icon">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
+            <div class="auth-views">
+                <!-- Login view -->
+                <div id="login-view" class="auth-view active">
+                    <form id="login-form" class="auth-form">
+                        <label class="auth-field">
+                            <span class="auth-label">Email</span>
+                            <input type="email" id="login-email" autocomplete="email" required>
+                        </label>
+                        <label class="auth-field">
+                            <span class="auth-label">Password</span>
+                            <input type="password" id="login-password" autocomplete="current-password" minlength="8" required>
+                        </label>
+                        <button type="submit" class="btn btn-primary auth-submit">Log In</button>
+                        <button type="button" id="btn-register" class="btn btn-secondary auth-secondary">Create account</button>
+                        <div id="login-error" class="error-msg" style="display:none;"></div>
+                    </form>
+
+                    <div class="auth-divider">
+                        <span></span>
+                        <p>or continue with</p>
+                        <span></span>
                     </div>
-                    <p id="zone-text">Drag & drop an image here, or click to browse</p>
-                    <span class="choose-btn" id="choose-btn">Choose Image</span>
-                    <img id="preview" class="preview" style="display:none;" alt="Preview">
+
+                    <div class="auth-social-row">
+                        <button type="button" class="auth-social-btn auth-social-google" data-provider="google">Google</button>
+                        <button type="button" class="auth-social-btn auth-social-apple" data-provider="apple">Apple</button>
+                        <button type="button" class="auth-social-btn auth-social-microsoft" data-provider="microsoft">Microsoft</button>
+                    </div>
+                </div>
+
+                <!-- Signup view -->
+                <div id="signup-view" class="auth-view">
+                    <form id="signup-form" class="auth-form">
+                        <div class="auth-name-row">
+                            <label class="auth-field auth-name-field">
+                                <span class="auth-label">First name</span>
+                                <input type="text" id="signup-first-name" autocomplete="given-name" required>
+                            </label>
+                            <label class="auth-field auth-name-field">
+                                <span class="auth-label">Last name</span>
+                                <input type="text" id="signup-last-name" autocomplete="family-name" required>
+                            </label>
+                        </div>
+                        <label class="auth-field">
+                            <span class="auth-label">Email</span>
+                            <input type="email" id="signup-email" autocomplete="email" required>
+                        </label>
+                        <label class="auth-field">
+                            <span class="auth-label">Password</span>
+                            <input type="password" id="signup-password" autocomplete="new-password" minlength="8" required>
+                        </label>
+                        <button type="submit" class="btn btn-primary auth-submit">Create account</button>
+                        <p class="auth-switch">
+                            Already have an account?
+                            <button type="button" id="btn-back-to-login" class="auth-switch-link">Log in</button>
+                        </p>
+                        <div id="signup-error" class="error-msg" style="display:none;"></div>
+                    </form>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="tab-panel" id="panel-camera">
-                <div class="camera-container">
-                    <div class="camera-video-wrap">
-                        <video id="camera-video" autoplay playsinline></video>
-                        <div id="camera-frame-overlay">
-                            <div class="camera-oval-mask"></div>
-                            <div class="camera-oval-hint">Align your face inside the oval</div>
-                            <div class="lighting-status" id="lighting-status">
-                                <span class="lighting-label" id="lighting-label">Lighting: Not checked</span>
-                                <label class="lighting-enforce">
-                                    <input type="checkbox" id="lighting-enforce-toggle" checked>
-                                    <span>Enforce good lighting</span>
-                                </label>
+    <!-- Main app shell (workspace) -->
+    <div id="app-shell" style="display:none;">
+        <header>
+            <div class="header-top">
+                <h1>Skin Analysis</h1>
+                <div class="header-user">
+                    <span id="header-user-label" class="header-user-label"></span>
+                    <button class="btn btn-secondary btn-logout" id="btn-logout" type="button">Logout</button>
+                </div>
+            </div>
+            <p class="subtitle">Upload a face image or use your camera for AI-powered skin analysis</p>
+        </header>
+
+        <!-- Page-level navigation -->
+        <nav class="page-nav">
+            <button class="page-nav-btn active" id="nav-analyze" data-page="page-analyze">New Analysis</button>
+            <button class="page-nav-btn" id="nav-compare" data-page="page-compare">Compare Before &amp; After</button>
+        </nav>
+
+        <!-- ═══════════════ PAGE: ANALYZE ═══════════════ -->
+        <main class="page active" id="page-analyze">
+            <section class="input-section">
+                <div class="input-tabs">
+                    <button class="tab active" id="tab-upload" data-tab="upload">Upload Image</button>
+                    <button class="tab" id="tab-camera" data-tab="camera">Use Camera</button>
+                </div>
+
+                <div class="tab-panel active" id="panel-upload">
+                    <div class="upload-zone" id="zone">
+                        <input type="file" id="file" accept="image/jpeg,image/png,image/jpg,image/webp" class="file-input-overlay">
+                        <div class="upload-icon" id="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <p id="zone-text">Drag & drop an image here, or click to browse</p>
+                        <span class="choose-btn" id="choose-btn">Choose Image</span>
+                        <img id="preview" class="preview" style="display:none;" alt="Preview">
+                    </div>
+                </div>
+
+                <div class="tab-panel" id="panel-camera">
+                    <div class="camera-container">
+                        <div class="camera-video-wrap">
+                            <video id="camera-video" autoplay playsinline></video>
+                            <div id="camera-frame-overlay">
+                                <div class="camera-oval-mask"></div>
+                                <div class="camera-oval-hint">Align your face inside the oval</div>
+                                <div class="lighting-status" id="lighting-status">
+                                    <span class="lighting-label" id="lighting-label">Lighting: Not checked</span>
+                                    <label class="lighting-enforce">
+                                        <input type="checkbox" id="lighting-enforce-toggle" checked>
+                                        <span>Enforce good lighting</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <canvas id="camera-canvas" style="display:none;"></canvas>
-                    <img id="camera-preview" class="preview" style="display:none;" alt="Camera capture">
-                    <div class="camera-controls">
-                        <button class="btn btn-secondary" id="btn-start-camera">Start Camera</button>
-                        <button class="btn btn-accent" id="btn-capture" style="display:none;">Take Photo</button>
-                        <button class="btn btn-secondary" id="btn-retake" style="display:none;">Retake</button>
-                    </div>
-                    <p class="camera-hint" id="camera-hint">Click "Start Camera" to begin</p>
-                </div>
-            </div>
-
-            <button class="btn btn-primary btn-analyze" id="analyze" disabled>Analyze Skin</button>
-        </section>
-
-        <div id="loading" class="loading" style="display:none;">
-            <div class="spinner"></div>
-            <span>Analyzing your skin... This may take a moment.</span>
-        </div>
-        <div id="error" class="error-msg" style="display:none;"></div>
-
-        <section id="results" class="results" style="display:none;">
-            <h2>Analysis Results</h2>
-            <div class="condition-tab-bar" id="condition-tab-bar"></div>
-            <div id="condition-panels">
-                <div class="condition-panel active" id="cpanel-overview">
-                    <div id="analysis-dials" style="margin-bottom: 28px;"></div>
-                    <p class="subtitle results-hint">Click a highlighted metric to show the detected region on the image</p>
-                    <div class="results-flex">
-                        <div class="result-img-wrap" id="img-wrap">
-                            <img id="result-img" class="result-img" alt="Annotated result">
-                            <svg id="result-overlay" class="result-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+                        <canvas id="camera-canvas" style="display:none;"></canvas>
+                        <img id="camera-preview" class="preview" style="display:none;" alt="Camera capture">
+                        <div class="camera-controls">
+                            <button class="btn btn-secondary" id="btn-start-camera">Start Camera</button>
+                            <button class="btn btn-accent" id="btn-capture" style="display:none;">Take Photo</button>
+                            <button class="btn btn-secondary" id="btn-retake" style="display:none;">Retake</button>
                         </div>
-                        <div class="metrics-panel" id="metrics"></div>
-                    </div>
-                    <div class="legend">
-                        <span class="legend-item"><span class="legend-dot" style="background:#00e5ff;"></span>Face</span>
-                        <span class="legend-item"><span class="legend-dot" style="background:#ab47bc;"></span>Dark Circles</span>
-                        <span class="legend-item"><span class="legend-dot" style="background:#8d6e63;"></span>Brown Spots</span>
-                        <span class="legend-item"><span class="legend-dot" style="background:#ffee58;"></span>Comedones</span>
-                        <span class="legend-item"><span class="legend-dot" style="background:#ef5350;"></span>Acne</span>
+                        <p class="camera-hint" id="camera-hint">Click "Start Camera" to begin</p>
                     </div>
                 </div>
-            </div>
-            <details class="raw-details">
-                <summary>Raw JSON Response</summary>
-                <pre id="raw-output"></pre>
-            </details>
-        </section>
-    </main>
 
-    <!-- ═══════════════ PAGE: COMPARE ═══════════════ -->
-    <main class="page" id="page-compare">
-        <section class="compare-section">
-            <h2>Compare Before & After</h2>
-            <p class="subtitle">Select two analyses to see what changed over time</p>
+                <button class="btn btn-primary btn-analyze" id="analyze" disabled>Analyze Skin</button>
+            </section>
 
-            <div id="history-loading" class="loading" style="display:none;">
+            <div id="loading" class="loading" style="display:none;">
                 <div class="spinner"></div>
-                <span>Loading history...</span>
+                <span>Analyzing your skin... This may take a moment.</span>
             </div>
+            <div id="error" class="error-msg" style="display:none;"></div>
 
-            <div id="no-history" class="empty-state" style="display:none;">
-                <p>No analyses yet. Run at least two analyses first, then come back to compare.</p>
-            </div>
-
-            <div id="history-grid" class="history-grid" style="display:none;">
-                <div class="history-col">
-                    <h3>Before (older)</h3>
-                    <div class="history-list" id="before-list"></div>
-                </div>
-                <div class="history-col">
-                    <h3>After (newer)</h3>
-                    <div class="history-list" id="after-list"></div>
-                </div>
-            </div>
-
-            <button class="btn btn-primary btn-analyze" id="btn-compare" disabled>Compare Selected</button>
-
-            <div id="compare-loading" class="loading" style="display:none;">
-                <div class="spinner"></div>
-                <span>Comparing analyses...</span>
-            </div>
-            <div id="compare-error" class="error-msg" style="display:none;"></div>
-        </section>
-
-        <section id="compare-results" class="results" style="display:none;">
-            <h2>Comparison Results</h2>
-            <div class="compare-header" id="compare-header"></div>
-            <div class="comp-tab-bar" id="comp-tab-bar"></div>
-            <div id="comp-panels">
-                <div class="comp-panel active" id="comp-panel-overview">
-                    <div class="dial-legend">
-                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:rgba(45,142,224,0.9); box-shadow:0 0 8px rgba(45,142,224,0.5);"></span>Before</span>
-                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:rgba(168,85,247,0.9); box-shadow:0 0 8px rgba(168,85,247,0.5);"></span>After</span>
-                        <span class="dial-legend-sep">|</span>
-                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(150,65%,42%); box-shadow:0 0 6px hsl(150,65%,42%);"></span>None / Good</span>
-                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(80,70%,50%); box-shadow:0 0 6px hsl(80,70%,50%);"></span>Mild</span>
-                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(30,90%,55%); box-shadow:0 0 6px hsl(30,90%,55%);"></span>Moderate</span>
-                        <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(350,65%,55%); box-shadow:0 0 6px hsl(350,65%,55%);"></span>Severe / Bad</span>
+            <section id="results" class="results" style="display:none;">
+                <h2>Analysis Results</h2>
+                <div class="condition-tab-bar" id="condition-tab-bar"></div>
+                <div id="condition-panels">
+                    <div class="condition-panel active" id="cpanel-overview">
+                        <div id="analysis-dials" style="margin-bottom: 28px;"></div>
+                        <p class="subtitle results-hint">Click a highlighted metric to show the detected region on the image</p>
+                        <div class="results-flex">
+                            <div class="result-img-wrap" id="img-wrap">
+                                <img id="result-img" class="result-img" alt="Annotated result">
+                                <svg id="result-overlay" class="result-overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <div class="metrics-panel" id="metrics"></div>
+                        </div>
+                        <div class="legend">
+                            <span class="legend-item"><span class="legend-dot" style="background:#00e5ff;"></span>Face</span>
+                            <span class="legend-item"><span class="legend-dot" style="background:#ab47bc;"></span>Dark Circles</span>
+                            <span class="legend-item"><span class="legend-dot" style="background:#8d6e63;"></span>Brown Spots</span>
+                            <span class="legend-item"><span class="legend-dot" style="background:#ffee58;"></span>Comedones</span>
+                            <span class="legend-item"><span class="legend-dot" style="background:#ef5350;"></span>Acne</span>
+                        </div>
                     </div>
-                    <div id="compare-charts"></div>
                 </div>
-            </div>
-        </section>
-    </main>
+                <details class="raw-details">
+                    <summary>Raw JSON Response</summary>
+                    <pre id="raw-output"></pre>
+                </details>
+            </section>
+        </main>
+
+        <!-- ═══════════════ PAGE: COMPARE ═══════════════ -->
+        <main class="page" id="page-compare">
+            <section class="compare-section">
+                <h2>Compare Before & After</h2>
+                <p class="subtitle">Select two analyses to see what changed over time</p>
+
+                <div id="history-loading" class="loading" style="display:none;">
+                    <div class="spinner"></div>
+                    <span>Loading history...</span>
+                </div>
+
+                <div id="no-history" class="empty-state" style="display:none;">
+                    <p>No analyses yet. Run at least two analyses first, then come back to compare.</p>
+                </div>
+
+                <div id="history-grid" class="history-grid" style="display:none;">
+                    <div class="history-col">
+                        <h3>Before (older)</h3>
+                        <div class="history-list" id="before-list"></div>
+                    </div>
+                    <div class="history-col">
+                        <h3>After (newer)</h3>
+                        <div class="history-list" id="after-list"></div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-analyze" id="btn-compare" disabled>Compare Selected</button>
+
+                <div id="compare-loading" class="loading" style="display:none;">
+                    <div class="spinner"></div>
+                    <span>Comparing analyses...</span>
+                </div>
+                <div id="compare-error" class="error-msg" style="display:none;"></div>
+            </section>
+
+            <section id="compare-results" class="results" style="display:none;">
+                <h2>Comparison Results</h2>
+                <div class="compare-header" id="compare-header"></div>
+                <div class="comp-tab-bar" id="comp-tab-bar"></div>
+                <div id="comp-panels">
+                    <div class="comp-panel active" id="comp-panel-overview">
+                        <div class="dial-legend">
+                            <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:rgba(45,142,224,0.9); box-shadow:0 0 8px rgba(45,142,224,0.5);"></span>Before</span>
+                            <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:rgba(168,85,247,0.9); box-shadow:0 0 8px rgba(168,85,247,0.5);"></span>After</span>
+                            <span class="dial-legend-sep">|</span>
+                            <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(150,65%,42%); box-shadow:0 0 6px hsl(150,65%,42%);"></span>None / Good</span>
+                            <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(80,70%,50%); box-shadow:0 0 6px hsl(80,70%,50%);"></span>Mild</span>
+                            <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(30,90%,55%); box-shadow:0 0 6px hsl(30,90%,55%);"></span>Moderate</span>
+                            <span class="dial-legend-item"><span class="dial-legend-swatch" style="background:hsl(350,65%,55%); box-shadow:0 0 6px hsl(350,65%,55%);"></span>Severe / Bad</span>
+                        </div>
+                        <div id="compare-charts"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script src="app.js"></script>
 </body>

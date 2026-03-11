@@ -13,8 +13,9 @@ body {
 }
 
 header {
-    text-align: center;
     padding: 40px 24px 8px;
+    max-width: 1100px;
+    margin: 0 auto;
 }
 
 h1 {
@@ -39,10 +40,225 @@ h2 {
     font-size: 0.95rem;
 }
 
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+
+.header-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-user-label {
+    font-size: 0.8rem;
+    color: #33608c;
+}
+
+.btn-logout {
+    padding-inline: 14px;
+    padding-block: 8px;
+    font-size: 0.8rem;
+}
+
 main {
     max-width: 1100px;
     margin: 0 auto;
     padding: 24px;
+}
+
+/* --- Auth / Login --- */
+
+.auth-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+}
+
+.auth-card {
+    max-width: 420px;
+    width: 100%;
+    padding: 28px 24px 24px;
+}
+
+.auth-views {
+    width: 100%;
+}
+
+.auth-view {
+    display: none;
+}
+
+.auth-view.active {
+    display: block;
+}
+
+.auth-logo-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 999px;
+    background: radial-gradient(circle at 30% 20%, #fff, rgba(255,255,255,0.1));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.auth-logo-orb {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    background: conic-gradient(from 210deg, #2d8ee0, #5cb3f5, #a855f7, #2d8ee0);
+    box-shadow:
+        0 0 18px rgba(45, 142, 224, 0.6),
+        0 0 28px rgba(168, 85, 247, 0.5);
+}
+
+.auth-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin-bottom: 6px;
+}
+
+.auth-subtitle {
+    font-size: 0.9rem;
+    color: #5a7a9a;
+    margin-bottom: 16px;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.auth-label {
+    font-size: 0.8rem;
+    color: #48668a;
+    font-weight: 500;
+}
+
+.auth-field input {
+    border-radius: 12px;
+    border: 1px solid rgba(74, 144, 217, 0.25);
+    padding: 9px 12px;
+    font-size: 0.9rem;
+    outline: none;
+    background: rgba(255, 255, 255, 0.85);
+    color: #1a2a40;
+}
+
+.auth-field input:focus {
+    border-color: rgba(45, 142, 224, 0.7);
+    box-shadow: 0 0 0 1px rgba(45, 142, 224, 0.35);
+}
+
+.auth-submit {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.auth-secondary {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    margin-bottom: 10px;
+}
+
+.auth-divider span {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(74, 144, 217, 0.25), transparent);
+}
+
+.auth-divider p {
+    font-size: 0.75rem;
+    color: #7a9aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.auth-social-row {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.auth-social-btn {
+    flex: 1;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.78);
+    padding: 9px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: #2a4a6a;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.auth-social-btn:hover {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 4px 14px rgba(74, 144, 217, 0.18);
+    transform: translateY(-1px);
+}
+
+.auth-social-google { }
+.auth-social-apple { }
+.auth-social-microsoft { }
+
+.auth-name-row {
+    display: flex;
+    gap: 8px;
+}
+
+.auth-name-field {
+    flex: 1;
+}
+
+@media (max-width: 480px) {
+    .auth-name-row {
+        flex-direction: column;
+    }
+}
+
+.auth-switch {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #5a7a9a;
+}
+
+.auth-switch-link {
+    border: none;
+    background: none;
+    padding: 0 2px;
+    color: #1a6fc4;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: underline;
 }
 
 /* --- Tabs --- */
