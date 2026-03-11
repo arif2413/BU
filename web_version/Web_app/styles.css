@@ -161,12 +161,107 @@ main {
     box-shadow: 0 4px 24px rgba(74, 144, 217, 0.08);
 }
 
-#camera-video {
+.camera-video-wrap {
+    position: relative;
+    display: inline-block;
     width: 100%;
     max-width: 500px;
+}
+
+#camera-video {
+    width: 100%;
     border-radius: 12px;
     background: #eaf2fa;
     display: none;
+}
+
+#camera-frame-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: none;
+}
+
+#camera-frame-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    background:
+        radial-gradient(ellipse at center,
+            transparent 55%,
+            rgba(5, 26, 60, 0.6) 58%);
+    transition: opacity 0.25s ease;
+    opacity: 0.95;
+}
+
+.camera-oval-mask {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 46%;
+    height: 80%;
+    transform: translate(-50%, -50%);
+    border-radius: 50% / 70%;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.9),
+        0 0 25px rgba(74, 144, 217, 0.55);
+    mix-blend-mode: screen;
+}
+
+.camera-oval-hint {
+    position: absolute;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    color: #f5fbff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.lighting-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 8px 10px;
+    font-size: 0.75rem;
+    color: #0b2340;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 999px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.lighting-label {
+    font-weight: 600;
+}
+
+.lighting-status.good .lighting-label {
+    color: #1a8a3a;
+}
+
+.lighting-status.fair .lighting-label {
+    color: #c27b18;
+}
+
+.lighting-status.poor .lighting-label {
+    color: #c03030;
+}
+
+.lighting-enforce {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+    color: #4a6a8a;
+}
+
+.lighting-enforce input {
+    accent-color: #2d8ee0;
 }
 
 .camera-controls {

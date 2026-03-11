@@ -18,6 +18,10 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 from .analyzer import run_analysis
+from io import BytesIO
+from typing import Dict
+
+from PIL import Image
 
 load_dotenv()
 
@@ -215,6 +219,76 @@ LOWER_IS_BETTER = {
 }
 
 
+def _compute_lighting_metrics(image_bytes: bytes) -> Dict[str, float]:
+    """Compute simple lighting statistics for an RGB image."""
+    try:
+        img = Image.open(BytesIO(image_bytes)).convert("RGB")
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Lighting analysis failed to open image: %s", exc)
+        raise HTTPException(status_code=400, detail="Invalid image data for lighting check")
+
+    # Downscale aggressively for speed
+    img = img.resize((64, 64))
+    pixels = list(img.getdata())
+    n = len(pixels) or 1
+
+    total = 0.0
+    total_sq = 0.0
+    dark = 0
+    bright = 0
+
+    for r, g, b in pixels:
+        y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        norm = y / 255.0
+        total += norm
+        total_sq += norm * norm
+        if norm < 0.2:
+            dark += 1
+        elif norm > 0.9:
+            bright += 1
+
+    mean = total / n
+    variance = max(total_sq / n - mean * mean, 0.0)
+    std = variance ** 0.5
+    dark_frac = dark / n
+    bright_frac = bright / n
+
+    return {
+        "mean_brightness": round(mean, 4),
+        "contrast": round(std, 4),
+        "dark_fraction": round(dark_frac, 4),
+        "bright_fraction": round(bright_frac, 4),
+    }
+
+
+def _classify_lighting(metrics: Dict[str, float]) -> Dict[str, str]:
+    """Classify lighting using the same heuristic as the frontend."""
+    mean = metrics.get("mean_brightness", 0.0)
+    std = metrics.get("contrast", 0.0)
+    dark_frac = metrics.get("dark_fraction", 0.0)
+    bright_frac = metrics.get("bright_fraction", 0.0)
+
+    if mean < 0.22 or dark_frac > 0.55:
+        return {
+            "level": "poor",
+            "message": "Lighting is too dark. Move to brighter, even light.",
+        }
+    if mean > 0.93 or bright_frac > 0.55:
+        return {
+            "level": "poor",
+            "message": "Lighting is too bright or backlit. Avoid strong glare.",
+        }
+    if std < 0.06:
+        return {
+            "level": "fair",
+            "message": "Lighting is flat. Try adding a bit more contrast.",
+        }
+    return {
+        "level": "good",
+        "message": "Lighting is suitable.",
+    }
+
+
 def _get_nested(obj, dotted_key):
     """Safely traverse a nested dict by dotted key."""
     parts = dotted_key.split(".")
@@ -299,6 +373,30 @@ async def analyze(image: UploadFile = File(..., description="Image file (JPEG/PN
         "image_width": result.get("image_width"),
         "image_height": result.get("image_height"),
     }
+
+
+@app.post("/check-lighting")
+async def check_lighting(image: UploadFile = File(..., description="Image file (JPEG/PNG/WebP for lighting check)")):
+    """
+    Quick lighting-quality analysis for a given image.
+
+    Returns mean brightness, contrast and an overall classification (good/fair/poor).
+    """
+    if image.content_type and not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    try:
+        image_bytes = await image.read()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Failed to read lighting check image: %s", exc)
+        raise HTTPException(status_code=400, detail="Failed to read file for lighting check")
+
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    metrics = _compute_lighting_metrics(image_bytes)
+    classification = _classify_lighting(metrics)
+    return {"metrics": metrics, "classification": classification}
 
 
 @app.get("/history")

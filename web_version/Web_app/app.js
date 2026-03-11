@@ -35,6 +35,10 @@
     const cameraVideo = document.getElementById("camera-video");
     const cameraCanvas = document.getElementById("camera-canvas");
     const cameraPreview = document.getElementById("camera-preview");
+    const cameraFrameOverlay = document.getElementById("camera-frame-overlay");
+    const lightingStatusEl = document.getElementById("lighting-status");
+    const lightingLabelEl = document.getElementById("lighting-label");
+    const lightingEnforceToggle = document.getElementById("lighting-enforce-toggle");
     const btnStartCamera = document.getElementById("btn-start-camera");
     const btnCapture = document.getElementById("btn-capture");
     const btnRetake = document.getElementById("btn-retake");
@@ -51,6 +55,109 @@
 
     let selectedFile = null;
     let cameraStream = null;
+    let cameraCroppedPreviewSrc = "";
+    let lightingSampleTimer = null;
+    let latestLightingMetrics = null;
+    let latestLightingClass = { level: "unknown", message: "Not checked" };
+
+    const lightingSampleCanvas = document.createElement("canvas");
+    const lightingSampleCtx = lightingSampleCanvas.getContext("2d");
+
+    function stopLightingSampling() {
+        if (lightingSampleTimer) {
+            clearInterval(lightingSampleTimer);
+            lightingSampleTimer = null;
+        }
+    }
+
+    function analyzeLightingFrame() {
+        if (!cameraVideo || !cameraStream) return null;
+        const vw = cameraVideo.videoWidth;
+        const vh = cameraVideo.videoHeight;
+        if (!vw || !vh) return null;
+
+        const w = 64;
+        const h = 64;
+        lightingSampleCanvas.width = w;
+        lightingSampleCanvas.height = h;
+        lightingSampleCtx.drawImage(cameraVideo, 0, 0, w, h);
+
+        const imageData = lightingSampleCtx.getImageData(0, 0, w, h).data;
+        const n = w * h;
+        if (!n) return null;
+
+        let sum = 0;
+        let sumSq = 0;
+        let dark = 0;
+        let bright = 0;
+
+        for (let i = 0; i < imageData.length; i += 4) {
+            const r = imageData[i];
+            const g = imageData[i + 1];
+            const b = imageData[i + 2];
+            const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            const norm = y / 255;
+            sum += norm;
+            sumSq += norm * norm;
+            if (norm < 0.2) dark += 1;
+            else if (norm > 0.9) bright += 1;
+        }
+
+        const mean = sum / n;
+        const variance = Math.max(sumSq / n - mean * mean, 0);
+        const std = Math.sqrt(variance);
+        const darkFrac = dark / n;
+        const brightFrac = bright / n;
+
+        return { mean, std, darkFrac, brightFrac };
+    }
+
+    function classifyLighting(metrics) {
+        if (!metrics) {
+            return { level: "unknown", message: "Lighting: Not checked" };
+        }
+        const { mean, std, darkFrac, brightFrac } = metrics;
+
+        // Very dark or very bright → poor (slightly relaxed)
+        if (mean < 0.22 || darkFrac > 0.55) {
+            return { level: "poor", message: "Lighting: Too dark - move to brighter, even light" };
+        }
+        if (mean > 0.93 || brightFrac > 0.55) {
+            return { level: "poor", message: "Lighting: Too bright - avoid strong backlight or direct glare" };
+        }
+
+        // Low contrast → fair (flat lighting)
+        if (std < 0.06) {
+            return { level: "fair", message: "Lighting: Fair - try adding a bit more contrast" };
+        }
+
+        return { level: "good", message: "Lighting: Good" };
+    }
+
+    function applyLightingUI(classification) {
+        if (!lightingStatusEl || !lightingLabelEl || !classification) return;
+        lightingStatusEl.classList.remove("good", "fair", "poor");
+        if (classification.level === "good") {
+            lightingStatusEl.classList.add("good");
+        } else if (classification.level === "fair") {
+            lightingStatusEl.classList.add("fair");
+        } else if (classification.level === "poor") {
+            lightingStatusEl.classList.add("poor");
+        }
+        lightingLabelEl.textContent = classification.message;
+    }
+
+    function startLightingSampling() {
+        if (!lightingStatusEl || !lightingLabelEl) return;
+        stopLightingSampling();
+        lightingSampleTimer = setInterval(() => {
+            const metrics = analyzeLightingFrame();
+            if (!metrics) return;
+            latestLightingMetrics = metrics;
+            latestLightingClass = classifyLighting(metrics);
+            applyLightingUI(latestLightingClass);
+        }, 400);
+    }
     let regionsData = {};
     let imgW = 0;
     let imgH = 0;
@@ -124,11 +231,18 @@
             });
             cameraVideo.srcObject = cameraStream;
             cameraVideo.style.display = "block";
+            if (cameraFrameOverlay) cameraFrameOverlay.style.display = "block";
             btnStartCamera.style.display = "none";
             btnCapture.style.display = "";
             cameraHint.textContent = "Position your face and click \"Take Photo\"";
             cameraPreview.style.display = "none";
             btnRetake.style.display = "none";
+            cameraCroppedPreviewSrc = "";
+            if (lightingStatusEl && lightingLabelEl) {
+                lightingStatusEl.classList.remove("good", "fair", "poor");
+                lightingLabelEl.textContent = "Lighting: Checking...";
+            }
+            startLightingSampling();
         } catch (err) {
             cameraHint.textContent = "Camera access denied or unavailable: " + err.message;
         }
@@ -136,6 +250,20 @@
 
     btnCapture.onclick = () => {
         if (!cameraStream) return;
+
+        // Final lighting check on the exact capture frame
+        const metrics = analyzeLightingFrame();
+        if (metrics) {
+            latestLightingMetrics = metrics;
+            latestLightingClass = classifyLighting(metrics);
+            applyLightingUI(latestLightingClass);
+        }
+        const enforce = lightingEnforceToggle ? lightingEnforceToggle.checked : false;
+        if (enforce && latestLightingClass && latestLightingClass.level === "poor") {
+            cameraHint.textContent = "Lighting is poor. Adjust your position or lighting, or turn off \"Enforce good lighting\" to continue.";
+            return;
+        }
+
         const vw = cameraVideo.videoWidth;
         const vh = cameraVideo.videoHeight;
         cameraCanvas.width = vw;
@@ -143,12 +271,36 @@
         const ctx = cameraCanvas.getContext("2d");
         ctx.drawImage(cameraVideo, 0, 0, vw, vh);
 
+        // Build an oval-cropped preview for UI while keeping full-frame for backend
+        const ovalCanvas = document.createElement("canvas");
+        ovalCanvas.width = vw;
+        ovalCanvas.height = vh;
+        const octx = ovalCanvas.getContext("2d");
+        octx.save();
+        const rx = vw * 0.3;
+        const ry = vh * 0.39;
+        octx.beginPath();
+        octx.ellipse(vw / 2, vh * 0.5, rx, ry, 0, 0, Math.PI * 2);
+        octx.clip();
+        octx.drawImage(cameraVideo, 0, 0, vw, vh);
+        octx.restore();
+        try {
+            cameraCroppedPreviewSrc = ovalCanvas.toDataURL("image/png");
+        } catch (e) {
+            cameraCroppedPreviewSrc = "";
+        }
+
         cameraCanvas.toBlob((blob) => {
             if (!blob) return;
             selectedFile = new File([blob], "camera_capture.jpg", { type: "image/jpeg" });
-            cameraPreview.src = URL.createObjectURL(blob);
+            if (cameraCroppedPreviewSrc) {
+                cameraPreview.src = cameraCroppedPreviewSrc;
+            } else {
+                cameraPreview.src = URL.createObjectURL(blob);
+            }
             cameraPreview.style.display = "block";
             cameraVideo.style.display = "none";
+            if (cameraFrameOverlay) cameraFrameOverlay.style.display = "none";
             btnCapture.style.display = "none";
             btnRetake.style.display = "";
             cameraHint.textContent = "Photo captured. Click \"Analyze Skin\" to continue.";
@@ -165,6 +317,7 @@
         btnRetake.style.display = "none";
         btnStartCamera.style.display = "";
         cameraHint.textContent = "Click \"Start Camera\" to begin";
+        if (cameraFrameOverlay) cameraFrameOverlay.style.display = "none";
         hideResults();
     };
 
@@ -173,6 +326,8 @@
             cameraStream.getTracks().forEach((t) => t.stop());
             cameraStream = null;
         }
+        if (cameraFrameOverlay) cameraFrameOverlay.style.display = "none";
+        stopLightingSampling();
     }
 
     // ── Analyze ──

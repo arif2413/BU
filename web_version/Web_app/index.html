@@ -44,7 +44,20 @@
 
             <div class="tab-panel" id="panel-camera">
                 <div class="camera-container">
-                    <video id="camera-video" autoplay playsinline></video>
+                    <div class="camera-video-wrap">
+                        <video id="camera-video" autoplay playsinline></video>
+                        <div id="camera-frame-overlay">
+                            <div class="camera-oval-mask"></div>
+                            <div class="camera-oval-hint">Align your face inside the oval</div>
+                            <div class="lighting-status" id="lighting-status">
+                                <span class="lighting-label" id="lighting-label">Lighting: Not checked</span>
+                                <label class="lighting-enforce">
+                                    <input type="checkbox" id="lighting-enforce-toggle" checked>
+                                    <span>Enforce good lighting</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                     <canvas id="camera-canvas" style="display:none;"></canvas>
                     <img id="camera-preview" class="preview" style="display:none;" alt="Camera capture">
                     <div class="camera-controls">
