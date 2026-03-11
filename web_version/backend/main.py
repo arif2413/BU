@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
-from analyzer import run_analysis
+from .analyzer import run_analysis
 
 load_dotenv()
 

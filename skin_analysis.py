@@ -1,3 +1,4 @@
+import os
 import requests
 from PIL import Image, ImageDraw, ImageFont
 import io
@@ -23,7 +24,9 @@ files = {
 # Optional parameters - use empty or omit if API expects different format
 payload = {}
 
-headers = {"ailabapi-api-key": "IUnRk1bTqCDsDhn6IWuke1OeKwu6dY9ghzAMBdp53PyWZlsAUGm2cPBYxaR8j7Nt"}
+# Read API key from environment instead of hardcoding secrets
+api_key = os.environ.get("AILABAPI_API_KEY", "")
+headers = {"ailabapi-api-key": api_key} if api_key else {}
 
 response = requests.post(url, data=payload, files=files, headers=headers)
 data = response.json()
